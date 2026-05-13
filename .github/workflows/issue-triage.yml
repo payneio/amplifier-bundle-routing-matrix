@@ -1,5 +1,5 @@
 # Issue Triage — powered by kenotron-ms/amplifier-app-actions
-# Runs a structured triage recipe when a new issue is opened.
+# Runs a prompt-based triage when a new issue is opened.
 # Output: a comment on the issue with classification and next steps.
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
 name: Issue Triage
@@ -18,9 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: kenotron-ms/amplifier-app-actions@v1
+      - uses: kenotron-ms/amplifier-app-actions@main
         with:
-          mode: recipe
-          recipe_path: .github/amplifier/triage-recipe.yaml
+          prompt: |
+            You are an expert issue triage agent. When a new issue arrives:
+            
+            1. **Classify** the issue type: bug, feature request, documentation, discussion, or question
+            2. **Determine severity** if applicable: critical, high, medium, low
+            3. **Assign label(s)** that match the classification
+            4. **Post a comment** acknowledging receipt with:
+               - A one-line summary of what was reported
+               - The classification and any labels applied
+               - A brief next step (e.g., "waiting for author details", "ready for triage review")
+            
+            Use the issue title and body to understand the reporter's intent. Be concise and helpful.
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
