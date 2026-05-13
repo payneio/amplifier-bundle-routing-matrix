@@ -76,6 +76,38 @@ The system tries `vision` first. If no installed provider matches any candidate 
 
 Every matrix must define at least `general` and `fast`. All other roles are optional — agents fall back through their `model_role` list if a role isn't defined.
 
+## How `model_role` and `provider_preferences` interact (matrix strategy)
+
+> The behavior documented in this section is matrix-strategy policy. Alternative routing-strategy bundles that register the `model_role_resolver` capability MAY choose different semantics.
+
+`amplifier-foundation` agents/skills/recipes typically declare **both** `model_role:` and `provider_preferences:` in their frontmatter. This is **by design**, not redundant:
+
+- **`provider_preferences:`** is the bundle-portable, **always-works fallback**. It functions for every `AmplifierSession` regardless of which bundles are installed — including sessions that don't include any routing bundle at all.
+- **`model_role:`** is the **opt-in enhancement** that activates only when a routing bundle (such as this one) is installed. It tells the routing bundle which semantic role to resolve against the active matrix.
+
+### What this bundle does when both fields are declared
+
+When this bundle's `hooks-routing` is mounted, its `session:start` hook reads each agent's `model_role:`. For every agent that declares one, the hook resolves it against the active matrix and **overwrites** `agent_cfg["provider_preferences"]` with the matrix-resolved candidates. The hard-pinned frontmatter `provider_preferences:` is replaced at runtime.
+
+When this bundle is NOT mounted (the session has no routing bundle), the hook never runs, and frontmatter `provider_preferences:` flows through unchanged. The agent operates on its hard-pinned fallback.
+
+The net effect:
+
+| Configuration | Routing bundle installed | Routing bundle NOT installed |
+|---|---|---|
+| `model_role:` + `provider_preferences:` (typical foundation agent) | Matrix resolves `model_role` → preferences | Frontmatter `provider_preferences` flows through |
+| `model_role:` only | Matrix resolves `model_role` → preferences | Agent gets parent's mount-plan defaults (no per-agent override) |
+| `provider_preferences:` only (rare; only when matrix resolution is undesirable) | Frontmatter flows through (no override) | Frontmatter flows through |
+
+### Author guidance
+
+**Declare both.** That's the supported and recommended pattern. Authors get:
+
+- Per-agent provider preferences that work in any bundle composition (`provider_preferences:`)
+- Smart matrix resolution that activates automatically when a routing bundle is loaded (`model_role:`)
+
+Per-delegate `model_role` overrides (e.g. `delegate(agent="...", model_role="research")`) take precedence over BOTH the agent's frontmatter and the matrix-resolved agent-config preferences. That precedence is the spawner's policy, not this bundle's — see [`amplifier-app-cli/docs/SPAWN_PRECEDENCE.md`](https://github.com/microsoft/amplifier-app-cli/blob/main/docs/SPAWN_PRECEDENCE.md).
+
 ## Selecting a Matrix
 
 **Via CLI command:**
