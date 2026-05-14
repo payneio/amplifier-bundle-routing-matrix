@@ -100,9 +100,10 @@ steps:
   - id: reproduce
     type: agent
     depends_on: [investigate]
+    instruction: |
       Attempt reproduction via launch_dtu — or document exactly why not.
       This step has no condition. It always runs. It always produces structured output.
-    instruction: |
+
       You must complete this step and produce JSON output. This step has no condition —
       it runs unconditionally after every investigation. Your job is to either call
       launch_dtu or document precisely why you cannot. Silence is not acceptable here.
