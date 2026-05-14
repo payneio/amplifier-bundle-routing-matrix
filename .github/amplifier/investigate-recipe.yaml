@@ -12,6 +12,7 @@ description: >
 
 steps:
   - id: understand
+    agent: foundation:zen-architect
     prompt: |
       Analyze GitHub issue #{{ context.number }} in {{ context.owner }}/{{ context.repo }}.
 
@@ -43,8 +44,7 @@ steps:
     parse_json: true
 
   - id: clone
-    agent: triage
-    depends_on: [understand]
+    agent: foundation:zen-architect
     prompt: |
       You are investigating issue #{{ context.number }}: {{ context.title }}
 
@@ -64,8 +64,7 @@ steps:
     parse_json: true
 
   - id: investigate
-    agent: triage
-    depends_on: [clone]
+    agent: foundation:zen-architect
     prompt: |
       Investigate the root cause of issue #{{ context.number }}.
 
@@ -97,8 +96,7 @@ steps:
     parse_json: true
 
   - id: reproduce
-    agent: triage
-    depends_on: [investigate]
+    agent: foundation:zen-architect
     prompt: |
       Attempt reproduction via launch_dtu — or document exactly why not.
       This step has no condition. It always runs. It always produces structured output.
@@ -126,7 +124,6 @@ steps:
         Python script that exercises the hypothesis (e.g. create a session, call spawn, inspect
         the child config), and assert the expected vs actual behaviour. No live model calls
         are required to verify config propagation bugs.
-
       SKIP launch_dtu only if ALL of the following apply:
       - has_concrete_repro is false — no runnable commands in the issue
       - investigate.confidence is NOT "high" (medium or low)
@@ -159,8 +156,7 @@ steps:
     parse_json: true
 
   - id: report
-    agent: triage
-    depends_on: [understand, investigate, reproduce]
+    agent: foundation:zen-architect
     prompt: |
       Post a structured investigation report on issue #{{ context.number }} in {{ context.owner }}/{{ context.repo }}.
 
