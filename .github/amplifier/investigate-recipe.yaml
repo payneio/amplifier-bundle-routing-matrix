@@ -12,7 +12,6 @@ description: >
 
 steps:
   - id: understand
-    agent: foundation:explorer
     prompt: |
       Analyze GitHub issue #{{ context.number }} in {{ context.owner }}/{{ context.repo }}.
 
@@ -120,11 +119,17 @@ steps:
 
       CALL launch_dtu if ANY of these apply:
       - has_concrete_repro is true — the issue contains runnable commands
-      - investigate.confidence is "high" AND requires_live_llm is false — the investigation
-        surfaced a clear code-level hypothesis that can be tested without a live model
+      - investigate.confidence is "high" — a high-confidence investigation ALWAYS has a
+        code-level assertion. Even when full reproduction requires a live model, you can
+        still inspect config propagation, data structures, and call paths in a container.
+        Use goal mode to describe the code inspection: install the packages, write a minimal
+        Python script that exercises the hypothesis (e.g. create a session, call spawn, inspect
+        the child config), and assert the expected vs actual behaviour. No live model calls
+        are required to verify config propagation bugs.
 
       SKIP launch_dtu only if ALL of the following apply:
       - has_concrete_repro is false — no runnable commands in the issue
+      - investigate.confidence is NOT "high" (medium or low)
       - requires_live_llm is true — reproduction requires a live model or provider
       - There is no shell-level assertion that could prove or disprove the hypothesis
 
