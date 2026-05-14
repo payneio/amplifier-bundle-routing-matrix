@@ -1,5 +1,5 @@
 name: issue-investigation
-version: 1.1.0
+version: 1.2.0
 description: >
   Deep-dive issue investigation in five stages: extract structured understanding of
   the issue, clone relevant repos, read source code and form a root cause hypothesis
@@ -10,8 +10,23 @@ description: >
   step decides whether to call launch_dtu or document why it cannot. Either way it
   produces structured output. The pipeline enforces this; the agent cannot skip it.
 
+# context declares the namespaces injected by amplifier-app-actions at runtime.
+# Placeholder values satisfy the recipe validator; real values are provided via
+# the recipes tool's context parameter when the recipe is executed.
+context:
+  context:
+    number: 0
+    owner: ""
+    repo: ""
+    title: ""
+    body: ""
+    author: ""
+    labels: []
+    event_type: ""
+
 steps:
   - id: understand
+    output: understand
     agent: foundation:zen-architect
     prompt: |
       Analyze GitHub issue #{{ context.number }} in {{ context.owner }}/{{ context.repo }}.
@@ -44,6 +59,7 @@ steps:
     parse_json: true
 
   - id: clone
+    output: clone
     agent: foundation:git-ops
     prompt: |
       You are investigating issue #{{ context.number }}: {{ context.title }}
@@ -64,6 +80,7 @@ steps:
     parse_json: true
 
   - id: investigate
+    output: investigate
     agent: foundation:bug-hunter
     prompt: |
       Investigate the root cause of issue #{{ context.number }}.
@@ -96,6 +113,7 @@ steps:
     parse_json: true
 
   - id: reproduce
+    output: reproduce
     agent: amplifier-tester:setup-digital-twin
     prompt: |
       Attempt reproduction via launch_dtu — or document exactly why not.
@@ -172,9 +190,7 @@ steps:
       {{ investigate.hypothesis }}
 
       **Evidence**
-      {% for e in investigate.evidence %}
-      - `{{ e.file }}:{{ e.line }}` — {{ e.detail }}
-      {% endfor %}
+      {{ investigate.evidence }}
 
       ### Reproduction
       {% if reproduce.attempted %}
