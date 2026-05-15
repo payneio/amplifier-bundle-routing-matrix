@@ -1,14 +1,10 @@
 name: issue-investigation
-version: 1.2.0
+version: 1.3.0
 description: >
   Deep-dive issue investigation in five stages: extract structured understanding of
   the issue, clone relevant repos, read source code and form a root cause hypothesis
   with specific file:line evidence, attempt reproduction in an isolated Digital Twin
-  environment, then post findings as a comment and apply a label.
-
-  Stage 4 (reproduce) always runs — it is never conditional. The agent inside that
-  step decides whether to call launch_dtu or document why it cannot. Either way it
-  produces structured output. The pipeline enforces this; the agent cannot skip it.
+  environment via amplifier-tester, then post findings as a comment and apply a label.
 
 # context declares the namespaces injected by amplifier-app-actions at runtime.
 # Placeholder values satisfy the recipe validator; real values are provided via
@@ -39,23 +35,23 @@ steps:
 
       Extract the following. Use the author's exact words where possible.
 
-      1. problem_statement — One sentence: the observable problem.
-      2. affected_repos — Repos mentioned or implied. Use "owner/repo@ref" when a version,
+      1. problem_statement - One sentence: the observable problem.
+      2. affected_repos - Repos mentioned or implied. Use "owner/repo@ref" when a version,
          tag, or branch is referenced; otherwise "owner/repo".
-      3. affected_components — Specific classes, functions, modules, or subsystems named.
-      4. error_messages — Stack traces or error messages verbatim. Empty list if none.
-      5. repro_steps_summary — What the issue says to do: literal shell/Python commands if
+      3. affected_components - Specific classes, functions, modules, or subsystems named.
+      4. error_messages - Stack traces or error messages verbatim. Empty list if none.
+      5. repro_steps_summary - What the issue says to do: literal shell/Python commands if
          they exist, or a description of the conceptual scenario if commands are absent.
-      6. has_concrete_repro — true if the issue contains runnable shell commands or Python
+      6. has_concrete_repro - true if the issue contains runnable shell commands or Python
          snippets that could execute in an isolated container without interactive setup or
          live LLM calls. false otherwise.
-      7. requires_live_llm — true if reproducing this issue requires actual LLM API calls,
+      7. requires_live_llm - true if reproducing this issue requires actual LLM API calls,
          specific model behavior, or provider availability. false otherwise.
-      8. expected_behavior — What the author expected to happen.
-      9. actual_behavior — What actually happened.
+      8. expected_behavior - What the author expected to happen.
+      9. actual_behavior - What actually happened.
 
       Respond only with valid JSON:
-      {"problem_statement": "...", "affected_repos": ["owner/repo@ref"], "affected_components": ["..."], "error_messages": ["..."], "repro_steps_summary": "...", "has_concrete_repro": false, "requires_live_llm": false, "expected_behavior": "...", "actual_behavior": "..."}
+      {{"problem_statement": "...", "affected_repos": ["owner/repo@ref"], "affected_components": ["..."], "error_messages": ["..."], "repro_steps_summary": "...", "has_concrete_repro": false, "requires_live_llm": false, "expected_behavior": "...", "actual_behavior": "..."}}
     parse_json: true
 
   - id: clone
@@ -69,14 +65,14 @@ steps:
 
       Using the ecosystem map available to you:
       1. For each repo in affected_repos, call github_checkout_repo to clone it.
-         Parse the "owner/repo@ref" string — pass the ref separately if present.
+         Parse the "owner/repo@ref" string - pass the ref separately if present.
          Use the default branch if no ref is specified.
       2. Consider whether any other repos in the Amplifier ecosystem are relevant
          given the components affected. Clone those too.
       3. Record the local path where each repo was placed.
 
       Respond only with valid JSON:
-      {"cloned": [{"repo": "owner/repo", "ref": "...", "path": "/tmp/workspace/..."}]}
+      {{"cloned": [{{"repo": "owner/repo", "ref": "...", "path": "/tmp/workspace/..."}}]}}
     parse_json: true
 
   - id: investigate
@@ -92,85 +88,104 @@ steps:
 
       Read the relevant source files IN FULL using tool-filesystem.
       Follow the code path end-to-end:
-      — Read the entry points the author would have called
-      — Read their implementations
-      — Read callers, callees, and related tests
-      — Read configuration and context files that affect the behavior
+      - Read the entry points the author would have called
+      - Read their implementations
+      - Read callers, callees, and related tests
+      - Read configuration and context files that affect the behavior
 
       Every claim must be supported by a specific file and line number you have read.
       Do not raise any concern you cannot point to in code.
 
       Produce:
-      1. hypothesis — What specific code path causes the observed behavior and why.
-      2. evidence — Each supporting piece with file, line, and a one-line explanation.
-      3. confidence — "high" (clear code-level cause found), "medium" (plausible but
+      1. hypothesis - What specific code path causes the observed behavior and why.
+      2. evidence - Each supporting piece with file, line, and a one-line explanation.
+      3. confidence - "high" (clear code-level cause found), "medium" (plausible but
          indirect evidence), or "low" (educated guess, limited evidence).
-      4. testable_claim — One specific falsifiable claim a reproduction could verify.
+      4. testable_claim - One specific falsifiable claim a reproduction could verify.
          Frame it as: "If I run X, I expect to see Y."
 
       Respond only with valid JSON:
-      {"hypothesis": "...", "evidence": [{"file": "...", "line": 0, "detail": "..."}], "confidence": "high|medium|low", "testable_claim": "..."}
+      {{"hypothesis": "...", "evidence": [{{"file": "...", "line": 0, "detail": "..."}}], "confidence": "high|medium|low", "testable_claim": "..."}}
     parse_json: true
 
   - id: reproduce
     output: reproduce
     agent: amplifier-tester:setup-digital-twin
     prompt: |
-      Attempt reproduction via launch_dtu — or document exactly why not.
-      This step has no condition. It always runs. It always produces structured output.
+      Attempt reproduction in an isolated DTU container - or document exactly why not.
+      This step always runs. It always produces JSON output.
 
-      You must complete this step and produce JSON output. This step has no condition —
-      it runs unconditionally after every investigation. Your job is to either call
-      launch_dtu or document precisely why you cannot. Silence is not acceptable here.
-
-      Issue: #{{ context.number }} — {{ context.title }}
-      Testable claim from investigation: {{ investigate.testable_claim }}
-      Investigation confidence: {{ investigate.confidence }}
-      Repos: {{ understand.affected_repos }}
-      Has concrete repro steps: {{ understand.has_concrete_repro }}
+      Issue: #{{ context.number }} - {{ context.title }}
+      Testable claim: {{ investigate.testable_claim }}
+      Confidence: {{ investigate.confidence }}
+      Affected repos: {{ understand.affected_repos }}
+      Has concrete repro: {{ understand.has_concrete_repro }}
       Requires live LLM: {{ understand.requires_live_llm }}
       Repro steps: {{ understand.repro_steps_summary }}
 
-      DECISION — evaluate these rules in order:
+      ## Decision
 
-      CALL launch_dtu if ANY of these apply:
-      - has_concrete_repro is true — the issue contains runnable commands
-      - investigate.confidence is "high" — a high-confidence investigation ALWAYS has a
-        code-level assertion. Even when full reproduction requires a live model, you can
-        still inspect config propagation, data structures, and call paths in a container.
-        Use goal mode to describe the code inspection: install the packages, write a minimal
-        Python script that exercises the hypothesis (e.g. create a session, call spawn, inspect
-        the child config), and assert the expected vs actual behaviour. No live model calls
-        are required to verify config propagation bugs.
-      SKIP launch_dtu only if ALL of the following apply:
-      - has_concrete_repro is false — no runnable commands in the issue
-      - investigate.confidence is NOT "high" (medium or low)
-      - requires_live_llm is true — reproduction requires a live model or provider
-      - There is no shell-level assertion that could prove or disprove the hypothesis
+      ATTEMPT reproduction if ANY of these apply:
+      - has_concrete_repro is true (runnable commands exist in the issue)
+      - confidence is "high" (code-level assertion is always possible - inspect config
+        propagation, data structures, call paths without any live model calls)
 
-      If calling launch_dtu:
-      — Pass repos as "owner/repo@ref" strings from understand.affected_repos
-      — Set goal to a natural language description of what to run and what to assert.
-        Be specific: name the behavior to trigger, the output or exception to look for,
-        and reference the testable_claim. The goal is passed to dtu-profile-builder which
-        sets up the full environment — give it enough context to construct the right profile.
-      — Record the full raw output returned by launch_dtu.
-      — Interpret whether the testable_claim was confirmed or refuted.
+      SKIP only if ALL apply: has_concrete_repro is false AND confidence is not "high"
+      AND requires_live_llm is true AND no shell assertion can prove/disprove the hypothesis.
 
-      If skipping launch_dtu:
-      — Do NOT call the tool.
-      — Write a clear skipped_reason explaining why an isolated container cannot
-        reproduce this issue (one or two sentences, specific to this issue).
-      — Write what_would_enable_repro: what the author would need to provide —
-        concrete commands, a minimal script, a mock setup — before reproduction is possible.
+      ## If attempting - follow these steps exactly
 
-      Respond only with valid JSON. Include all keys in both cases, using null for unused fields.
+      ### 1. Build a DTU profile for the affected repos
+
+      Generate a minimal DTU profile. In provision.setup_cmds, clone each repo
+      from {{ understand.affected_repos }} using GITHUB_TOKEN for authentication:
+
+      ```bash
+      git clone --depth 1 \
+        https://x-access-token:${GITHUB_TOKEN}@github.com/<owner>/<repo> \
+        /workspace/<repo>
+      ```
+
+      If the repo spec includes a ref (owner/repo@ref):
+      - Branch or tag: add --branch <ref> to the clone command
+      - SHA: clone without --depth, then git -C /workspace/<repo> checkout <sha>
+
+      The profile must also:
+      - Use base.image: ubuntu:24.04
+      - Install git, python3-pip, and python3-venv in setup_cmds via apt-get
+      - Pass GITHUB_TOKEN and ANTHROPIC_API_KEY as passthrough.services
+
+      ### 2. Launch the DTU and run the testable claim
+
+      Launch the profile with amplifier-digital-twin launch <profile>.
+      Capture the instance id ("id" field in the JSON response).
+
+      Inside the container, in order:
+      1. Install any packages the repro script references
+      2. Write the reproduction script to /tmp/verify.py
+      3. Run: python3 /tmp/verify.py
+      Capture stdout, stderr, and exit code for each step.
+
+      ### 3. Destroy and interpret
+
+      Always destroy the instance: amplifier-digital-twin destroy <id>
+
+      Determine whether {{ investigate.testable_claim }} was confirmed or refuted.
+
+      ## If skipping
+
+      Do NOT launch any DTU. Just explain why in skipped_reason and
+      describe what would enable reproduction in what_would_enable_repro.
+
+      ## Output
+
+      Respond only with valid JSON. Use null for unused fields in both cases.
 
       When attempted:
-      {"attempted": true, "reproduced": true, "dtu_goal": "...", "output": "full raw DTU output", "conclusion": "...", "skipped_reason": null, "what_would_enable_repro": null}
+      {{"attempted": true, "reproduced": true, "dtu_goal": "...", "output": "full raw output", "conclusion": "...", "skipped_reason": null, "what_would_enable_repro": null}}
 
       When skipped:
-      {"attempted": false, "reproduced": null, "dtu_goal": null, "output": null, "conclusion": null, "skipped_reason": "...", "what_would_enable_repro": "..."}
+      {{"attempted": false, "reproduced": null, "dtu_goal": null, "output": null, "conclusion": null, "skipped_reason": "...", "what_would_enable_repro": "..."}}
     parse_json: true
 
   - id: report
@@ -215,9 +230,9 @@ steps:
 
       ### Next Steps
       [Write concrete, specific next steps for a human. Based only on the evidence above:
-      — If reproduced and confirmed: name the exact file:line to fix and the recommended approach
-      — If not reproduced: what exact information to request from {{ context.author }}
-      — If confidence is low: what additional investigation is needed and who should own it
+      - If reproduced and confirmed: name the exact file:line to fix and the recommended approach
+      - If not reproduced: what exact information to request from {{ context.author }}
+      - If confidence is low: what additional investigation is needed and who should own it
       Do not write generic advice. Every recommendation must follow from the evidence.]
 
       ---

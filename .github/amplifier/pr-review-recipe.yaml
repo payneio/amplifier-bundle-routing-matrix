@@ -1,14 +1,27 @@
 name: PR Review
-version: 1.0.0
+version: 1.1.0
 description: >
   Structured PR review in four steps: identify what changed and which repos provide
   context, clone those repos, apply the five-check review framework, then post a
   structured verdict comment. The comment is the primary output.
 
+context:
+  context:
+    number: 0
+    owner: ""
+    repo: ""
+    title: ""
+    body: ""
+    author: ""
+    base_ref: ""
+    head_ref: ""
+    labels: []
+    event_type: ""
+
 steps:
   - id: identify
     type: agent
-    agent: triage
+    agent: foundation:explorer
     prompt: |
       Review PR #{{ context.number }} in {{ context.owner }}/{{ context.repo }}.
 
@@ -32,7 +45,7 @@ steps:
 
   - id: checkout_context
     type: agent
-    agent: triage
+    agent: foundation:explorer
     depends_on: [identify]
     prompt: |
       Clone these repos for review context: {{ identify.relevant_repos }}
@@ -47,7 +60,7 @@ steps:
 
   - id: review
     type: agent
-    agent: triage
+    agent: foundation:zen-architect
     depends_on: [checkout_context]
     prompt: |
       Review PR #{{ context.number }}: {{ context.title }}
@@ -83,7 +96,7 @@ steps:
 
   - id: post_verdict
     type: agent
-    agent: triage
+    agent: foundation:modular-builder
     depends_on: [review]
     prompt: |
       Use github_post_comment to post a review on PR #{{ context.number }} in {{ context.owner }}/{{ context.repo }}.
