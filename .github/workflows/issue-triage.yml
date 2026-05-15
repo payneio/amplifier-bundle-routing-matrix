@@ -1,7 +1,18 @@
 # Issue Triage — powered by kenotron-ms/amplifier-app-actions
-# Runs a prompt-based triage when a new issue is opened.
-# Output: a comment on the issue with classification and next steps.
+#
+# Triggered when a new issue is opened. Reads .triage-prompt (which references
+# AGENTS.md via @-mention) and appends the issue URL as the subject to investigate.
+#
+# The agent first does a quick check:
+#   - If the issue is requesting a PR review: label it "pr-review-request" and stop.
+#     A team member can then post /pr to trigger the actual review.
+#   - Otherwise: run full triage per AGENTS.md principles.
+#
+# AGENTS.md and GUIDANCE.md are checked in at the repo root so they are
+# available to the Amplifier session as @-mention targets.
+#
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
+
 name: Issue Triage
 
 on:
@@ -18,19 +29,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compose triage prompt
+        id: prompt
+        run: |
+          TRIAGE_PROMPT=$(cat .triage-prompt)
+          ISSUE_URL="https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}"
+
+          {
+            echo "content<<PROMPT_EOF"
+            printf '%s %s\n' "${TRIAGE_PROMPT}" "${ISSUE_URL}"
+            echo ""
+            echo "Before doing any investigation: check whether this issue is requesting a PR review"
+            echo "(the body mentions a pull request URL, asks to review a PR, or says something like"
+            echo "'please review PR #N'). If it is:"
+            echo "1. Add the label \"pr-review-request\" using github_add_label"
+            echo "2. Post a comment: \"PR review request received. A team member will post \`/pr\` as a comment to trigger the review.\""
+            echo "3. Stop — do not investigate further."
+            echo ""
+            echo "Otherwise: proceed with full triage per the principles in AGENTS.md."
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: kenotron-ms/amplifier-app-actions@main
         with:
-          prompt: |
-            You are an expert issue triage agent. When a new issue arrives:
-            
-            1. **Classify** the issue type: bug, feature request, documentation, discussion, or question
-            2. **Determine severity** if applicable: critical, high, medium, low
-            3. **Assign label(s)** that match the classification
-            4. **Post a comment** acknowledging receipt with:
-               - A one-line summary of what was reported
-               - The classification and any labels applied
-               - A brief next step (e.g., "waiting for author details", "ready for triage review")
-            
-            Use the issue title and body to understand the reporter's intent. Be concise and helpful.
+          prompt: ${{ steps.prompt.outputs.content }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

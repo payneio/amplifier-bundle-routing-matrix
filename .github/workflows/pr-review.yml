@@ -1,26 +1,78 @@
 # PR Review — powered by kenotron-ms/amplifier-app-actions
-# Runs a structured review recipe when a new PR is opened.
-# Output: a comment on the PR with findings and verdict.
+#
+# Triggered by two paths:
+#   Path A: pull_request opened — structured recipe-based review posted to the PR.
+#   Path B: /pr comment on an issue — reviews the PR referenced in the issue body,
+#           posts findings back to the issue. Allows a team member to kick off a review
+#           from a "pr-review-request" issue without opening the PR directly.
+#
+# For Path B, the issue should describe which PR to review (URL or owner/repo#N).
+# The Amplifier agent reads AGENTS.md (auto-loaded from repo root), finds the PR,
+# and applies the five-check review framework.
+#
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
+
 name: PR Review
 
 on:
   pull_request:
     types: [opened]
+  issue_comment:
+    types: [created]
 
 permissions:
   pull-requests: write
+  issues: write
   contents: read
 
 jobs:
-  review:
+  # Path A: New PR opened — run the structured review recipe.
+  review-pr-opened:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: kenotron-ms/amplifier-app-actions@v1
+      - uses: kenotron-ms/amplifier-app-actions@main
         with:
           mode: recipe
           recipe_path: .github/amplifier/pr-review-recipe.yaml
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # Path B: /pr comment on an issue — prompt-based review of the referenced PR.
+  review-from-issue:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '/pr') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose PR review prompt
+        id: prompt
+        run: |
+          TRIAGE_PROMPT=$(cat .triage-prompt)
+          ISSUE_URL="https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}"
+
+          {
+            echo "content<<PROMPT_EOF"
+            printf '%s %s\n' "${TRIAGE_PROMPT}" "${ISSUE_URL}"
+            echo ""
+            echo "This issue is a PR review request. Follow the PR Review sections in AGENTS.md:"
+            echo "- Find the PR URL or reference (owner/repo#N) in the issue body"
+            echo "- Read the PR diff to orient, then read every changed file IN FULL"
+            echo "- Read related files: callers, tests, interfaces, canonical examples"
+            echo "- Apply the five checks in order: Necessity, Layer fit, Pattern, Correctness, Calibration"
+            echo "- Every finding must cite a specific file:line — no finding without evidence"
+            echo "- Post your findings as a comment on this issue using github_post_comment"
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: kenotron-ms/amplifier-app-actions@main
+        with:
+          prompt: ${{ steps.prompt.outputs.content }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
