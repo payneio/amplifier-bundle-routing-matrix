@@ -1,0 +1,77 @@
+name: reproduce-issue
+version: 1.0.0
+description: >
+  Single-step reproduction recipe. Launches an isolated DTU container,
+  installs the affected repos, runs the minimal inspection script from
+  the issue body, and reports whether the bug is reproduced.
+
+# context declares the namespaces injected by amplifier-app-actions at runtime.
+# Placeholder values satisfy the recipe validator; real values are provided via
+# the recipes tool's context parameter when the recipe is executed.
+context:
+  context:
+    number: 0
+    owner: ""
+    repo: ""
+    title: ""
+    body: ""
+    author: ""
+    labels: []
+    event_type: ""
+
+steps:
+  - id: reproduce
+    output: reproduce
+    agent: foundation:bug-hunter
+    prompt: |
+      Reproduce issue #{{context.number}} in {{context.owner}}/{{context.repo}}:
+      "{{context.title}}"
+
+      Call the launch_dtu tool in commands mode with the following exact
+      parameters. Do NOT modify the commands — run them verbatim.
+
+      repos:
+        - microsoft/amplifier-core@main
+        - microsoft/amplifier-bundle-routing-matrix@main
+        - microsoft/amplifier-foundation@main
+
+      commands:
+        - pip install -q git+https://github.com/microsoft/amplifier-core@main git+https://github.com/microsoft/amplifier-bundle-routing-matrix@main git+https://github.com/microsoft/amplifier-foundation@main
+        - |
+          python3 - << 'SCRIPT'
+          import asyncio, json
+          from amplifier_foundation import load_bundle
+
+          async def main():
+              bundle = await load_bundle(
+                  "git+https://github.com/microsoft/amplifier-bundle-routing-matrix@main"
+              )
+              prepared = await bundle.prepare()
+              parent = await prepared.create_session()
+              child_bundle = await load_bundle(
+                  "git+https://github.com/microsoft/amplifier-bundle-routing-matrix@main"
+              )
+              child = await prepared.spawn(child_bundle, "check routing", parent_session=parent)
+              parent_providers = parent.config.get("providers") or []
+              child_providers  = child.config.get("providers")  or []
+              print(json.dumps({"parent": len(parent_providers), "child": len(child_providers)}))
+              assert len(child_providers) == len(parent_providers), \
+                  f"BUG: child has {len(child_providers)} providers, parent has {len(parent_providers)}"
+              print("PASS")
+
+          asyncio.run(main())
+          SCRIPT
+
+      description: "Reproduce routing matrix fallback chain bug from issue #{{context.number}}"
+
+      After launch_dtu returns, examine the output and respond with valid JSON:
+
+      If the script ran and the assertion failed (BUG confirmed):
+      {"reproduced": true, "output": "<full raw output>", "conclusion": "Bug confirmed: child session drops fallback chain", "exit_code": 1}
+
+      If the script ran and printed PASS (bug not present or fixed):
+      {"reproduced": false, "output": "<full raw output>", "conclusion": "Bug not reproduced: child inherits full provider chain", "exit_code": 0}
+
+      If launch_dtu itself failed (infrastructure error, not a bug reproduction):
+      {"reproduced": false, "output": "<error output>", "conclusion": "Infrastructure error — could not complete reproduction", "exit_code": -1}
+    parse_json: true
