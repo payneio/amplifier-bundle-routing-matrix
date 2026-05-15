@@ -37,7 +37,7 @@ jobs:
         with:
           mode: recipe
           recipe_path: .github/amplifier/pr-review-recipe.yaml
-          model: claude-sonnet-4-6
+          model: claude-opus-4-6
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
