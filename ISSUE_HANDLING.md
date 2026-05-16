@@ -105,22 +105,17 @@ an agent to retrieve the specific lessons from that case study before designing 
 
 ### Phase 3: **GATE 1 - Investigation Approval**
 
-**Goal:** Get user approval on approach before implementing.
+**Goal:** Post investigation findings as a GitHub comment. For implementation work: surface approach before coding.
 
-**Present to user:**
+**Post to the issue:**
 1. Clear problem statement
 2. Root cause with evidence (file:line references)
-3. Proposed fix with rationale
-4. What will be tested and how
-5. **Draft GH text** (if the gate concludes with a GH interaction):
-   - If "no fix needed" -> draft closing/response comment (close, request info, by design)
-   - If "fix needed" -> approach only (GH text comes at Gate 2)
+3. Recommendation (close, request info, by design, or fix needed with approach)
+4. What will be tested and how (if proceeding to a fix)
 
-**Wait for explicit approval before proceeding.**
+**In triage mode, posting the comment IS completing this phase.** The GitHub comment is the deliverable — post it directly without waiting for human approval.
 
-**Gate efficiency rule:** If the investigation concludes with a GH interaction (close,
-request info, etc.), the user approves the action AND the text in one pass. Never
-present the decision in one round and the text in a follow-up.
+**In fix mode** (only when explicitly directed to implement): present findings and wait for direction before proceeding to Phase 4.
 
 ---
 
@@ -451,7 +446,7 @@ Use this checklist for every issue:
 - [ ] Delegate investigation to appropriate agents
 - [ ] Trace code paths (working vs broken if applicable)
 - [ ] Identify exact root cause with file:line references
-- [ ] **GATE 1:** Present investigation to user for approval
+- [ ] **GATE 1:** Post investigation findings as a GitHub comment (triage mode) OR present to user for approval before implementing (fix mode)
 
 ### Implementation
 - [ ] Implement fix based on approved design
@@ -466,7 +461,7 @@ Use this checklist for every issue:
 - [ ] Verify ALL evidence requirements pass
 - [ ] Collect before/after comparison
 - [ ] If tests fail -> investigate -> fix -> re-test (don't present until passing)
-- [ ] **GATE 2:** Present complete tested solution to user for approval
+- [ ] **GATE 2:** Present complete tested solution for approval before pushing code
 
 ### Finalization
 - [ ] Push via git-ops agent (handles rebasing, quality)
@@ -703,7 +698,8 @@ X **Same approach, fourth attempt** -> If it failed three times, the approach is
 X **"The PR looks correct, let me verify and merge"** -> PRs are context, not proposals. Design your own solution.  
 X **Burying status in analysis** -> Lead with the action confirmation on its own line ("Done -- posted to PR #10"), then the analytical summary. Action status must be scannable, not embedded in paragraphs.
 X **Adding to a large file without flagging size** -> Before modifying context files, check their current size. If a context file exceeds 500 lines, flag it and propose restructuring before adding more. Growing a problem is not acceptable just because the growth is individually justified.
-X **Posting to GH without gate approval** -> Every GH interaction (comment, review, close) must be reviewed by the user. Bundle the draft text into the nearest existing gate -- never post first and report after.
+X **Holding triage findings pending approval** -> Triage comments, classifications, and labels post directly -- they ARE the deliverable. Gate approval applies to code pushes and PRs, not to issue responses.
+X **Posting PR merges or code pushes without gate approval** -> Code changes still require a review step. Bundle the draft GH text into the nearest existing gate -- never merge first and report after.
 
 ---
 

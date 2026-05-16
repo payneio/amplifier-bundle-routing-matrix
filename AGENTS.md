@@ -53,8 +53,8 @@ Six questions before every message. If you can answer all six honestly, send. If
    - Lead with actions ("update Diego's PR with the fixes"), not git mechanics.
    - See **Principle 6**.
 
-5. **Did I get explicit user approval before any GitHub-facing action, and does it follow Repo Scope Rules?**
-   Comments, issue state changes, PR creation all require showing the full draft and waiting for go-ahead. `amplifier-support` gets the full investigation; public artifacts get **zero** org specifics. Substantive PR feedback goes via DM, not as a PR review body. See **Repo Scope Rules** below.
+5. **Does this follow Repo Scope Rules?**
+   Triage outputs — investigation comments, classifications, labels, and issue state changes — post directly. The GitHub comment IS the deliverable, not a draft awaiting approval. PRs and code pushes still require a review step before executing. `amplifier-support` gets the full investigation; public artifacts get **zero** org specifics. Substantive PR feedback goes via DM, not as a PR review body. See **Repo Scope Rules** below.
 
 6. **Did I execute every agreed action in this session?**
    Conversation produces decisions. Every decision becomes a todo. Every todo executes to completion before the turn ends. Issue lifecycle actions (closing comment + PR link, label cleanup, related-issue check, learning capture) are implicit agreed actions when a fix ships. See **Principle 8**.
@@ -370,7 +370,7 @@ Patterns learned from team decisions that aren't yet captured in ecosystem docum
 
 Do NOT ask "should I implement this?", "want me to create a PR?", or "shall I kick off the fix?" The user will tell you when it's time to implement. Until then, your deliverable is a complete investigation with findings and a recommendation — not code.
 
-The workflow is: investigate → verify through code → present findings → wait for direction. Implementation happens only when the user explicitly says to proceed, after all due diligence is done.
+The workflow is: investigate → verify through code → post findings as a GitHub comment. The comment IS the result. Implementation (PRs, code changes) happens only when explicitly directed.
 
 ### The Triage Prompt
 
@@ -491,7 +491,7 @@ The diff is the entry point — it tells you what changed. It is not the review.
 
 ### GitHub
 
-- **All GitHub-facing actions require explicit user approval before execution.** Comments, issue state changes (close/reopen/label), and PR creation all require showing the user the full draft and receiving explicit go-ahead before posting.
+- **Triage outputs post directly.** Investigation findings, classifications, labels, and issue responses are the deliverable — post them via `gh` without waiting for approval. PRs and code pushes require a review step before executing.
 - **No write access? Fork and PR.** Never report "no write access" as a blocker.
 - **Search the GitHub org** (`gh repo list microsoft --match amplifier-module-loop`), not just local installs.
 - **Verify artifact status** with `gh pr view` / `gh issue view` before suggesting actions.
@@ -504,7 +504,7 @@ The diff is the entry point — it tells you what changed. It is not the review.
 - **Verify fork vs upstream before pushing to PR branches.** Check `headRepositoryOwner` from `gh pr view --json`. If the PR is from a fork, add the fork as a remote and push there.
 - **Don't let auto-formatters contaminate fix diffs.** When making targeted fixes, make only the substantive changes. Pre-existing formatting issues belong in a separate commit.
 - **GitHub content API returns stale code.** Never trust `gh api repos/.../contents/` without verification. Fetch the HEAD SHA first (`gh api repos/<owner>/<repo>/commits/main --jq '.sha'`), pin the content request to that SHA (`?ref=<sha>`), and cross-check the commit log if the file content matters.
-- **Post to GitHub directly — don't default to clipboard.** When the deliverable is a GitHub comment, PR review, or issue update, the default action is posting via `gh`. Draft the text, show the user, get approval, then post. Only use clipboard when the user explicitly says "copy."
+- **Post to GitHub directly — don't default to clipboard.** When the deliverable is a GitHub comment or issue update, post via `gh` immediately. Only use clipboard when the user explicitly says "copy."
 - **Use GitHub login, not display name, for commit attribution.** Query `author.login`, not `commit.author.name`.
 - **Token scopes:** `gh auth refresh -h github.com -s delete_repo` is required for fork deletion. Verify scopes with `gh auth status` before attempting.
 
