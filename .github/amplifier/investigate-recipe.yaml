@@ -179,6 +179,9 @@ steps:
 
       ## Output
 
+      IMPORTANT: Do NOT call github_post_comment. This step returns data only.
+      Posting to GitHub is the report step's job. Multiple comments per run is noise.
+
       Respond only with valid JSON. Use null for unused fields in both cases.
 
       When attempted:
