@@ -1,28 +1,44 @@
 # amplifier-actions-example
 
-Reference configuration showing a repository set up with
-[amplifier-app-actions](https://github.com/kenotron-ms/amplifier-app-actions)
-for automated issue triage and PR review.
+Reference configuration showing how to use
+[`kenotron-ms/amplifier-app-actions`](https://github.com/kenotron-ms/amplifier-app-actions)
+with [`kenotron-ms/amplifier-bundle-dev-support`](https://github.com/kenotron-ms/amplifier-bundle-dev-support)
+for automated issue triage, deep investigation, and PR review on Amplifier ecosystem repos.
 
-## Design principle
+---
 
-Comments are the premium interface. When a new issue is opened, the agent posts
-a structured triage comment. When a new PR is opened, the agent posts a structured
-review comment. The comment is the product — it is how analysis reaches the user.
+## What's here
 
-Prompts are not the configuration surface. Recipes are. Each recipe encodes a
-structured investigation process: what to check, in what order, how to report
-findings. Swapping the recipe changes the behavior; swapping the workflow file
-does not.
+Just three workflow files. No local context files. No recipes. All agent knowledge lives in the bundle.
 
-## What's configured
+```
+.github/
+  workflows/
+    issue-triage.yml    ← fires on issues: opened
+    investigate.yml     ← fires on /investigate comment or needs-investigation label
+    pr-review.yml       ← fires on pull_request: opened or /pr comment
+```
 
-| File | Purpose |
-|------|---------|
-| `.github/workflows/issue-triage.yml` | Triggers on `issues: opened`, runs the triage recipe |
-| `.github/workflows/pr-review.yml` | Triggers on `pull_request: opened`, runs the review recipe |
-| `.github/amplifier/triage-recipe.yaml` | Structured triage: classify → label → comment |
-| `.github/amplifier/pr-review-recipe.yaml` | Structured review: read files → five checks → comment |
+---
+
+## How it works
+
+Each workflow sets `bundle:` to a file in `amplifier-bundle-dev-support`. The bundle is the
+active bundle for the entire run — it carries all context (triage principles, verification
+discipline, PR review framework, investigation methodology). The `prompt:` in the workflow
+is just the event trigger.
+
+```
+workflow prompt: "Triage this issue: https://..."
+  + bundle context: GUIDANCE + AGENTS principles + ISSUE_HANDLING workflow
+  + tools: github_post_comment, github_add_label, github_checkout_repo
+  = agent session
+```
+
+No local `AGENTS.md`, `GUIDANCE.md`, or recipe files needed. Any repo that copies these
+workflows and adds the `ANTHROPIC_API_KEY` secret gets the same behavior.
+
+---
 
 ## Prerequisites
 
@@ -32,20 +48,27 @@ One repository secret:
 |--------|-------------|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key |
 
-## Customizing the recipes
+---
 
-Edit the `.github/amplifier/*.yaml` recipe files. The recipe encodes the
-investigation logic: which steps to run, what to check, how to format the
-output comment. The workflow files do not need to change when you change
-what the agent investigates.
+## Customizing
 
-Recipes support multiple steps with explicit ordering, bash steps for
-deterministic data gathering, and agent steps for LLM analysis. See the
-[amplifier-app-actions docs](https://github.com/kenotron-ms/amplifier-app-actions)
-for the full recipe schema.
+To change agent behavior, update the context files in
+[`amplifier-bundle-dev-support`](https://github.com/kenotron-ms/amplifier-bundle-dev-support) —
+not this repo. Changes there propagate to all workflows that reference the bundle via `@main`.
+
+To pin to a specific version, change `@main` to a tag or commit SHA:
+
+```yaml
+bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@v1.0.0#subdirectory=bundles/issue-triage.bundle.md
+```
+
+---
 
 ## Security
 
 These workflows use `issues` and `pull_request` triggers — not `pull_request_target`.
 The agent can read files, post comments, and add labels. It cannot execute code,
 make network requests outside the GitHub API, or modify repository content.
+
+`investigate.yml` uses `enable_reproduction: true` which installs Incus and requires
+a full VM runner (`ubuntu-latest`), not a container runner.

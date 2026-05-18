@@ -1,13 +1,14 @@
 # PR Review — powered by kenotron-ms/amplifier-app-actions
 #
 # Triggered by two paths:
-#   Path A: pull_request opened — structured recipe-based review posted to the PR.
+#   Path A: pull_request opened — reads the full diff and every changed file,
+#           applies the five-check framework, posts a structured review comment.
 #   Path B: /pr comment on an issue — reviews the PR referenced in the issue body,
 #           posts findings back to the issue. Allows a team member to kick off a review
 #           from a "pr-review-request" issue without opening the PR directly.
 #
 # The bundle carries all PR review context (five checks, read-full-files protocol,
-# DM routing rules) — no local prompt files needed.
+# DM routing rules) — no local prompt files or recipes needed.
 #
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
 
@@ -25,23 +26,33 @@ permissions:
   contents: read
 
 jobs:
-  # Path A: New PR opened — run the structured review recipe.
+  # Path A: New PR opened — full review posted to the PR.
   review-pr-opened:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: kenotron-ms/amplifier-app-actions@main
         with:
           bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@main#subdirectory=bundles/pr-review.bundle.md
-          mode: recipe
-          recipe_path: .github/amplifier/pr-review-recipe.yaml
+          prompt: |
+            A new pull request has been opened. Review it following the PR review principles in your context.
+
+            PR: https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+
+            Read the diff to orient, then read every changed file IN FULL using github_checkout_repo.
+            Read related files: callers, tests, interfaces, canonical examples from relevant repos.
+            Apply the five checks in order: Necessity, Layer fit, Pattern, Correctness, Calibration.
+            Every finding must cite a specific file:line — no finding without evidence.
+            Post your findings as a comment on the PR using github_post_comment.
           model: claude-opus-4-6
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-  # Path B: /pr comment on an issue — prompt-based review of the referenced PR.
+  # Path B: /pr comment on an issue — reviews the PR referenced in the issue body.
   review-from-issue:
     if: >-
       github.event_name == 'issue_comment' &&
