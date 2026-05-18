@@ -6,9 +6,8 @@
 #           posts findings back to the issue. Allows a team member to kick off a review
 #           from a "pr-review-request" issue without opening the PR directly.
 #
-# For Path B, the issue should describe which PR to review (URL or owner/repo#N).
-# The Amplifier agent reads AGENTS.md (auto-loaded from repo root), finds the PR,
-# and applies the five-check review framework.
+# The bundle carries all PR review context (five checks, read-full-files protocol,
+# DM routing rules) — no local prompt files needed.
 #
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
 
@@ -35,6 +34,7 @@ jobs:
 
       - uses: kenotron-ms/amplifier-app-actions@main
         with:
+          bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@main#subdirectory=bundles/pr-review.bundle.md
           mode: recipe
           recipe_path: .github/amplifier/pr-review-recipe.yaml
           model: claude-opus-4-6
@@ -52,29 +52,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compose PR review prompt
-        id: prompt
-        run: |
-          TRIAGE_PROMPT=$(cat .triage-prompt)
-          ISSUE_URL="https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}"
-
-          {
-            echo "content<<PROMPT_EOF"
-            printf '%s %s\n' "${TRIAGE_PROMPT}" "${ISSUE_URL}"
-            echo ""
-            echo "This issue is a PR review request. Follow the PR Review sections in AGENTS.md:"
-            echo "- Find the PR URL or reference (owner/repo#N) in the issue body"
-            echo "- Read the PR diff to orient, then read every changed file IN FULL"
-            echo "- Read related files: callers, tests, interfaces, canonical examples"
-            echo "- Apply the five checks in order: Necessity, Layer fit, Pattern, Correctness, Calibration"
-            echo "- Every finding must cite a specific file:line — no finding without evidence"
-            echo "- Post your findings as a comment on this issue using github_post_comment"
-            echo "PROMPT_EOF"
-          } >> "$GITHUB_OUTPUT"
-
       - uses: kenotron-ms/amplifier-app-actions@main
         with:
-          prompt: ${{ steps.prompt.outputs.content }}
+          bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@main#subdirectory=bundles/pr-review.bundle.md
+          prompt: |
+            This issue is a PR review request. Follow the PR Review sections in your context:
+            - Find the PR URL or reference (owner/repo#N) in the issue body
+            - Read the PR diff to orient, then read every changed file IN FULL
+            - Read related files: callers, tests, interfaces, canonical examples
+            - Apply the five checks in order: Necessity, Layer fit, Pattern, Correctness, Calibration
+            - Every finding must cite a specific file:line — no finding without evidence
+            - Post your findings as a comment on this issue using github_post_comment
+
+            Issue: https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}
           model: claude-sonnet-4-6
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -1,11 +1,11 @@
-# Tier 2 investigation - powered by kenotron-ms/amplifier-app-actions
+# Tier 2 investigation — powered by kenotron-ms/amplifier-app-actions
 #
 # Triggered by two paths:
 #   Path A: /investigate comment from a trusted contributor
 #   Path B: needs-investigation label applied (typically by Tier 1 triage)
 #
 # enable_reproduction: true installs Incus on the runner so the agent can
-# call launch_dtu to reproduce issues in an isolated container.
+# use amplifier-tester to reproduce issues in an isolated container.
 #
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
 
@@ -37,6 +37,7 @@ jobs:
 
       - uses: kenotron-ms/amplifier-app-actions@main
         with:
+          bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@main#subdirectory=bundles/investigate.bundle.md
           enable_reproduction: true
           prompt: "use amplifier-tester to try to repro this: https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}"
           model: claude-sonnet-4-6
