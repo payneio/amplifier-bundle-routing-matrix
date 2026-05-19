@@ -12,6 +12,8 @@
 # triage agent (re-investigate) or a conversation between collaborators (stay silent).
 #
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
+# Note: /repro and /pr comments are handled by their own workflows (investigate.yml, pr-review.yml)
+# and are excluded here to prevent double-responses.
 
 name: Triage Continue
 
@@ -27,7 +29,10 @@ jobs:
   continue:
     runs-on: ubuntu-latest
     # Skip bot comments to prevent infinite loops
-    if: "!endsWith(github.event.comment.user.login, '[bot]')"
+    if: |
+      !endsWith(github.event.comment.user.login, '[bot]') &&
+      !startsWith(github.event.comment.body, '/repro') &&
+      !startsWith(github.event.comment.body, '/pr')
     steps:
       - uses: actions/checkout@v4
 

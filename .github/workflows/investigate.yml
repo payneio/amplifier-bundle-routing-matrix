@@ -1,7 +1,7 @@
 # Tier 2 investigation — powered by kenotron-ms/amplifier-app-actions
 #
 # Triggered by two paths:
-#   Path A: /investigate comment from a trusted contributor
+#   Path A: /repro comment from a trusted contributor
 #   Path B: needs-investigation label applied (typically by Tier 1 triage)
 #
 # enable_reproduction: true installs Incus on the runner so the agent can
@@ -9,7 +9,7 @@
 #
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
 
-name: Investigate
+name: Repro
 
 on:
   issue_comment:
@@ -25,7 +25,7 @@ jobs:
   investigate:
     if: >-
       (github.event_name == 'issue_comment' &&
-      contains(github.event.comment.body, '/investigate') &&
+      contains(github.event.comment.body, '/repro') &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
       ||
       (github.event_name == 'issues' && github.event.label.name == 'needs-investigation')
