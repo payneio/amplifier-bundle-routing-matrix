@@ -5,6 +5,7 @@ Provides model routing based on curated role-to-provider matrices.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -92,20 +93,24 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> None:
 
         from .resolver import resolve_model_role
 
-        for _agent_name, agent_cfg in agents.items():
+        async def _resolve_one(agent_cfg: dict[str, Any]) -> None:
+            """Resolve model_role for a single agent and patch agent_cfg in-place."""
             model_role = agent_cfg.get("model_role")
             if not model_role:
-                continue
-
+                return
             # Normalise to list
             if isinstance(model_role, str):
                 model_role = [model_role]
-
             resolved = await resolve_model_role(model_role, effective_matrix, providers)
             if resolved:
                 agent_cfg["provider_preferences"] = [
                     {"provider": r["provider"], "model": r["model"]} for r in resolved
                 ]
+
+        # Resolve all agents concurrently — wall-time becomes single longest
+        # latency rather than sum of all latencies.  Each coroutine writes only
+        # its own agent_cfg dict, so there is no shared mutable state.
+        await asyncio.gather(*(_resolve_one(cfg) for cfg in agents.values()))
 
         from amplifier_core.models import HookResult
 

@@ -375,3 +375,94 @@ class TestProviderRequestHook:
         assert "balanced" in result.context_injection
         assert "general" in result.context_injection
         assert "fast" in result.context_injection
+
+
+class TestSessionStartParallelism:
+    @pytest.mark.asyncio
+    async def test_session_start_resolves_agents_in_parallel(
+        self, tmp_path: Path
+    ) -> None:
+        """on_session_start must resolve all agents concurrently, not sequentially.
+
+        With N agents each requiring a provider.list_models() call that takes
+        LATENCY seconds, sequential execution would take N × LATENCY.  Parallel
+        execution via asyncio.gather() takes ≈ LATENCY (plus small overhead).
+
+        The test asserts elapsed < LATENCY × 3 to prove parallelism, which
+        gives a safe margin for scheduling overhead while clearly distinguishing
+        from the sequential case (N × LATENCY = 1.2s vs ~0.15s parallel).
+        """
+        import asyncio
+        import time
+
+        bundle_root = tmp_path / "bundle"
+        routing_dir = bundle_root / "routing"
+        routing_dir.mkdir(parents=True)
+
+        # Use a glob pattern so _resolve_glob() → list_models() is called per agent
+        content = textwrap.dedent("""\
+            name: balanced
+            description: "Parallelism test matrix"
+            updated: "2026-01-01"
+            roles:
+              general:
+                description: "General purpose"
+                candidates:
+                  - provider: anthropic
+                    model: claude-sonnet-*
+              fast:
+                description: "Fast tasks"
+                candidates:
+                  - provider: openai
+                    model: gpt-4o-mini
+        """)
+        (routing_dir / "balanced.yaml").write_text(content)
+
+        LATENCY = 0.15  # seconds per list_models() call
+        AGENT_COUNT = 8
+        SEQUENTIAL_FLOOR = AGENT_COUNT * LATENCY  # 1.2s — fail threshold
+
+        async def slow_list_models() -> list[str]:
+            await asyncio.sleep(LATENCY)
+            return ["claude-sonnet-4-20250514", "claude-sonnet-3-5-20241022"]
+
+        mock_provider = MagicMock()
+        mock_provider.list_models = slow_list_models
+        providers = {"provider-anthropic": mock_provider}
+
+        agents = {
+            f"agent-{i:02d}": {"model_role": "general"}
+            for i in range(AGENT_COUNT)
+        }
+
+        coordinator = _make_coordinator(providers=providers, agents=agents)
+
+        await mount(
+            coordinator,
+            config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)},
+        )
+
+        # Extract the registered session:start handler
+        calls = coordinator.hooks.register.call_args_list
+        handler = next(
+            call.args[1] for call in calls if call.args[0] == "session:start"
+        )
+
+        t0 = time.perf_counter()
+        await handler("session:start", {})
+        elapsed = time.perf_counter() - t0
+
+        # Parallel: ~LATENCY (0.15s).  Sequential: AGENT_COUNT × LATENCY (1.2s).
+        assert elapsed < LATENCY * 3, (
+            f"on_session_start appears sequential: took {elapsed:.2f}s "
+            f"for {AGENT_COUNT} agents × {LATENCY}s latency "
+            f"(sequential would be {SEQUENTIAL_FLOOR:.2f}s, "
+            f"parallel should be <{LATENCY * 3:.2f}s)"
+        )
+
+        # Correctness: every agent must still get resolved
+        for name, agent_cfg in agents.items():
+            assert "provider_preferences" in agent_cfg, (
+                f"Agent '{name}' missing provider_preferences after parallel resolution"
+            )
+            assert agent_cfg["provider_preferences"][0]["provider"] == "anthropic"
