@@ -3,17 +3,17 @@
 # Fires on any issue comment from a non-bot user.
 #
 # Explicit commands (always get a response):
-#   /dig [area]    — Re-investigate the issue focused on a specific area or question.
-#                    E.g. "/dig is this a core issue or provider-level?"
+#   /triage        — Re-run the full Attractor triage pipeline from scratch.
+#                    Uses triage-review.dot — same manager-supervisor loop as the initial triage.
+#   /dig [area]    — Re-investigate focused on a specific area or question.
 #   /ask [prompt]  — Direct escape hatch. Whatever you write after /ask, the bot responds.
-#                    E.g. "/ask why did you conclude the fix belongs in amplifier-core?"
 #
-# Everything else — LLM judges whether the comment is steering guidance for the
-# triage agent (re-investigate) or a conversation between collaborators (stay silent).
+# Everything else — LLM judges whether the comment is steering guidance (re-investigate)
+# or collaborator conversation (stay silent).
+#
+# Note: /repro and /pr are handled by investigate.yml and pr-review.yml respectively.
 #
 # Docs: https://github.com/kenotron-ms/amplifier-app-actions
-# Note: /repro and /pr comments are handled by their own workflows (investigate.yml, pr-review.yml)
-# and are excluded here to prevent double-responses.
 
 name: Triage Continue
 
@@ -26,11 +26,30 @@ permissions:
   contents: read
 
 jobs:
-  continue:
+  # /triage — re-run the full Attractor pipeline via attractor_source
+  # (wrapper.py only accepts one instruction type at a time)
+  retriage:
     runs-on: ubuntu-latest
-    # Skip bot comments to prevent infinite loops
     if: |
       !endsWith(github.event.comment.user.login, '[bot]') &&
+      startsWith(github.event.comment.body, '/triage')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: kenotron-ms/amplifier-app-actions@main
+        with:
+          bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@main#subdirectory=bundles/issue-triage.bundle.md
+          attractor_source: .github/amplifier/triage-review.dot
+          model: claude-sonnet-4-6
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # /dig, /ask, and LLM-judged steering — handled via prompt
+  continue:
+    runs-on: ubuntu-latest
+    if: |
+      !endsWith(github.event.comment.user.login, '[bot]') &&
+      !startsWith(github.event.comment.body, '/triage') &&
       !startsWith(github.event.comment.body, '/repro') &&
       !startsWith(github.event.comment.body, '/pr')
     steps:
