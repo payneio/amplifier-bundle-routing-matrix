@@ -1,0 +1,51 @@
+# Triage Continuation — powered by kenotron-ms/amplifier-app-actions
+#
+# Fires when a human replies /approve or /revise [feedback] on an issue
+# that has a triage draft comment (contains <!-- triage-state: awaiting-review -->).
+#
+# /approve  — confirms the analysis; the agent posts a final summary comment
+# /revise   — provides feedback; the agent revises its analysis and updates the comment
+#
+# Docs: https://github.com/kenotron-ms/amplifier-app-actions
+
+name: Triage Continue
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  continue:
+    runs-on: ubuntu-latest
+    # Only run when the comment starts with /approve or /revise
+    # and the commenter is the repo owner, member, or collaborator
+    if: |
+      (startsWith(github.event.comment.body, '/approve') ||
+       startsWith(github.event.comment.body, '/revise')) &&
+      github.event.comment.author_association != 'NONE'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: kenotron-ms/amplifier-app-actions@main
+        with:
+          bundle: git+https://github.com/kenotron-ms/amplifier-bundle-dev-support@main#subdirectory=bundles/issue-triage.bundle.md
+          prompt: |
+            Review this issue: https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}
+
+            The human reviewer has responded to the triage draft with:
+            "${{ github.event.comment.body }}"
+
+            If the response starts with `/approve`:
+            - Post a final comment confirming the analysis is approved and summarizing the root cause and fix in 2-3 sentences.
+            - Add the label "triaged" using github_add_label.
+
+            If the response starts with `/revise`:
+            - The text after "/revise" is the human's feedback. Use it to post an updated analysis comment, revising the root cause or fix recommendation accordingly.
+            - End the revised comment with: "Updated based on reviewer feedback. Reply with `/approve` to confirm or `/revise [more feedback]` for another round."
+          model: claude-sonnet-4-6
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
