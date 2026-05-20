@@ -1,0 +1,19 @@
+{
+  "action": "labeled",
+  "issue": {
+    "number": 3,
+    "title": "Sub-agent sessions ignore routing matrix fallback chains — child always uses first model, never falls back",
+    "body": "## Problem\n\nWhen the routing matrix bundle defines a fallback chain (e.g. `claude-opus → claude-sonnet → claude-haiku`), the parent session correctly walks the chain when a model is unavailable. However, child sessions spawned via `delegate()` only receive the first resolved model — the rest of the chain is dropped. If that model fails, the child errors rather than falling back.\n\n## Affected repos\n\n- `microsoft/amplifier-core` — `session.spawn` / config propagation into child sessions\n- `microsoft/amplifier-bundle-routing-matrix` — how routing config and fallback chains are structured in the bundle\n- `microsoft/amplifier-foundation` — `delegate()` implementation and how config is passed to spawned sessions\n\n## Steps to reproduce\n\n1. Install the routing matrix bundle with a multi-model fallback chain configured\n2. Run a session that delegates to a sub-agent with `model_role: coding`\n3. Simulate the first model being unavailable (rate limit or disable it)\n4. Observe parent session falls back to next model in chain — works correctly\n5. Observe child session errors with model unavailable rather than falling back\n\n## Expected behaviour\n\nChild sessions inherit the full routing config including the complete fallback chain.\n\n## Actual behaviour\n\nChild sessions only have the first/resolved model. The fallback chain is not present in the child's config. Child fails hard on model unavailability.",
+    "user": { "login": "kenotron-ms" },
+    "html_url": "https://github.com/kenotron-ms/amplifier-actions-example/issues/3",
+    "labels": [
+      { "name": "bug" },
+      { "name": "high-priority" },
+      { "name": "needs-investigation" }
+    ]
+  },
+  "repository": {
+    "name": "amplifier-actions-example",
+    "owner": { "login": "kenotron-ms" }
+  }
+}

@@ -30,7 +30,7 @@ digraph triage_review {
 
     // Attractor pipeline configuration
     goal              = "Triage the GitHub issue described in the conversation context"
-    default_fidelity  = "full"
+    default_fidelity  = "truncate"
     default_thread_id = "triage-thread"
 
     // ── Default node and edge styles ─────────────────────────────────────────
@@ -100,8 +100,7 @@ digraph triage_review {
     // Investigator delivers findings to quality gate.
     // quality-thread = fresh adversarial context (compact summary only).
     investigate -> quality_eval [
-        thread_id = "quality-thread",
-        fidelity  = "full"
+        thread_id = "quality-thread"
     ]
 
     // SUCCESS: quality approved — move to drafting and posting the comment.
@@ -117,7 +116,6 @@ digraph triage_review {
     quality_eval -> investigate [
         label     = "outcome!=success",
         condition = "outcome!=success",
-        thread_id = "triage-thread",
         style     = dashed,
         color     = "#E57373",
         fontcolor = "#E57373"

@@ -1,0 +1,16 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 42,
+    "title": "feat: propagate full routing config into spawned child sessions",
+    "body": "## Summary\n\nFixes the routing matrix fallback chain not being propagated into child sessions when spawning via `delegate()`.\n\n## Changes\n\n- `session.py:spawn()` now deep-copies the full routing config into the child session config rather than only passing the resolved model\n- Added test coverage for fallback chain propagation\n\n## Affected repos\n\n- `microsoft/amplifier-core` (this PR)\n\n## Testing\n\nRan the existing routing matrix test suite — all passing.",
+    "user": { "login": "some-contributor" },
+    "html_url": "https://github.com/kenotron-ms/amplifier-actions-example/pull/42",
+    "base": { "ref": "main" },
+    "head": { "ref": "fix/routing-config-propagation" }
+  },
+  "repository": {
+    "name": "amplifier-actions-example",
+    "owner": { "login": "kenotron-ms" }
+  }
+}

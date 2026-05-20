@@ -1,0 +1,15 @@
+{
+  "action": "opened",
+  "issue": {
+    "number": 99,
+    "title": "amplifier run crashes on startup with AttributeError: 'NoneType' object has no attribute 'execute'",
+    "body": "## Problem\n\n`amplifier run` crashes immediately on startup with:\n\n```\nAttributeError: 'NoneType' object has no attribute 'execute'\n  File \"amplifier_core/session.py\", line 142, in _run_loop\n    result = await self.orchestrator.execute(prompt)\n```\n\nThis started after upgrading from 1.4.0 to 1.5.0.\n\n## Steps to reproduce\n\n1. `pip install amplifier==1.5.0`\n2. `amplifier run --bundle git+https://github.com/microsoft/amplifier-foundation@main`\n3. Observe crash on first user input\n\n## Expected behaviour\n\nSession starts and responds normally.\n\n## Actual behaviour\n\nCrashes immediately. No graceful error message.",
+    "user": { "login": "test-user" },
+    "html_url": "https://github.com/kenotron-ms/amplifier-actions-example/issues/99",
+    "labels": []
+  },
+  "repository": {
+    "name": "amplifier-actions-example",
+    "owner": { "login": "kenotron-ms" }
+  }
+}

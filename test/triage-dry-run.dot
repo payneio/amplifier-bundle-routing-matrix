@@ -1,0 +1,110 @@
+// test/triage-dry-run.dot
+//
+// DRY-RUN variant of .github/amplifier/triage-review.dot.
+//
+// IDENTICAL to the real pipeline in every way that matters:
+//   - same investigate prompt and $quality_feedback injection
+//   - same quality_eval criteria and JSON-routing mechanism
+//   - same thread design (triage-thread / quality-thread)
+//   - same fidelity settings on edges
+//
+// The ONLY difference: comment_draft is removed.
+// quality_eval success routes directly to done — no GitHub comment is posted.
+// Safe to run repeatedly against any event, including real issues.
+//
+// Usage:
+//   make dry-run                            # uses test/events/routing-matrix.json
+//   make dry-run EVENT=test/events/simple.json
+//   make dry-run MODEL=claude-haiku-4-5-20251001
+
+digraph triage_review {
+
+    // ── Graph-level attributes ──────────────────────────────────────────────
+
+    label             = "Issue Triage Review [DRY RUN — no comment posted]"
+    labelloc          = t
+    rankdir           = TB
+    compound          = true
+    fontname          = "Helvetica"
+    nodesep           = 0.6
+    ranksep           = 0.9
+
+    goal              = "Triage the GitHub issue described in the conversation context"
+    default_fidelity  = "full"
+    default_thread_id = "triage-thread"
+
+    node [fontname="Helvetica", fontsize=11, style="filled"]
+    edge [fontname="Helvetica", fontsize=10, color="#555555"]
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // PIPELINE NODES
+    // ══════════════════════════════════════════════════════════════════════════
+
+    start [
+        label     = "Start",
+        shape     = Mdiamond,
+        fillcolor = "#C8E6C9"
+    ]
+
+    // Investigator — identical prompt to the real pipeline.
+    // Reads triage-context.md, checks sibling modules, outputs structured report.
+    investigate [
+        label     = "Investigate",
+        shape     = box,
+        fillcolor = "#E8F0FE",
+        timeout   = "7m",
+        prompt    = "IMPORTANT: Do NOT post any comments to GitHub via any mechanism. Output your findings as text only.\n\nQUALITY GATE FEEDBACK FROM PREVIOUS CYCLE (empty on first run):\n$quality_feedback\n\nIf the above feedback is non-empty, your previous investigation failed. Read the feedback carefully and specifically address each failure before doing anything else.\n\nSTEP 1 — LOAD CONTEXT (do this before anything else):\n  a) curl -s https://raw.githubusercontent.com/microsoft/amplifier/main/context/ecosystem-overview.md\n  b) curl -s https://raw.githubusercontent.com/microsoft/amplifier/main/docs/MODULES.md\n  c) read_file: /home/runner/work/amplifier-actions-example/amplifier-actions-example/.github/amplifier/triage-context.md\n     (if that path fails, try: github_checkout_repo owner=kenotron-ms repo=amplifier-actions-example, then read .github/amplifier/triage-context.md)\nThe triage-context.md has the FULL investigation principles and required output format — follow it exactly.\n\nSTEP 2 — WRITE YOUR SUMMARY BLOCK FIRST (before diving into details):\nImmediately after loading context, write the ## Summary block from triage-context.md with your best current hypothesis. Update it as you investigate. This ensures quality_eval sees a complete report even if you run short on time.\n\nSTEP 3 — INVESTIGATE the issue in $goal:\n  - Read the issue description but DO NOT trust it. Verify every claim against the actual source code.\n  - Especially: if the reporter says an exception is 'unhandled', check whether the CALLER already has a try/except. Trace upward through the call chain.\n  - Use github_checkout_repo with owner='microsoft' for relevant repos.\n\nSTEP 4 — CHECK SIBLING MODULES (required):\n  For any provider issue: checkout and check ALL of these: amplifier-module-provider-openai, provider-gemini, provider-azure-openai, provider-vllm, provider-ollama, provider-github-copilot.\n  For each: does the same gap exist? Note file:line.\n\nSTEP 5 — FINALIZE your output using the required structure from triage-context.md:\n  Lead with ## Summary block. Evidence follows."
+    ]
+
+    // Adversarial quality gate — identical prompt to the real pipeline.
+    // Returns raw JSON: {status, failure_reason?, context_updates?}
+    quality_eval [
+        label            = "Quality Gate",
+        shape            = diamond,
+        fillcolor        = "#FFF9C4",
+        goal_gate        = true,
+        retry_target     = "investigate",
+        timeout          = "3m",
+        reasoning_effort = high,
+        prompt           = "You are an adversarial reviewer. Evaluate the investigator's findings against all six criteria. Do all your reasoning in thinking and tool calls — your FINAL TEXT RESPONSE must be ONLY a raw JSON object, nothing else. No markdown. No explanation. No prose. No code fences.\n\nSix criteria to check:\n(1) PROXY CHECK: Did the investigator anchor on prior issue comments or reporter framing without independent code verification? FAIL if so.\n(2) SPECIFICITY: Is root cause pinned to a specific file:line? 'Probably in this function' = FAIL.\n(3) LAYER CHECK: Ecosystem hierarchy (innermost→outermost): amplifier-core → amplifier-module-* → amplifier-foundation → amplifier-bundle-* → amplifier-app-cli. If fix is scoped to one provider but root cause affects all providers, fix belongs higher. Ask: who does this NOT protect?\n(4) DIMENSIONALITY: Did investigator check sibling modules for the same issue? Only looking at one provider when multiple exist = FAIL.\n(5) RECOMMENDATION: Concrete recommendation required. List of options = FAIL.\n(6) STRUCTURE: Output must lead with conclusion in plain English. Buried findings = FAIL.\n\nThen your FINAL TEXT RESPONSE must be ONLY one of these two JSON objects — no other text before or after.\n\nOn FAIL — include context_updates so feedback is injected into the next investigate cycle:\n{\"status\": \"fail\", \"failure_reason\": \"Criterion N: specific reason\", \"context_updates\": {\"quality_feedback\": \"QUALITY GATE FAILED. Fix these specific issues in your next investigation:\\n- [criterion name]: [what was wrong and exactly what to do differently]\"}}\n\nOn SUCCESS:\n{\"status\": \"success\"}\n\nDo NOT write report_outcome(...) as text in your response. Do NOT add markdown. The pipeline reads your final text as JSON to route. Plain text routes to success regardless of what you write."
+    ]
+
+    // Pipeline exit — no comment_draft in the dry-run variant.
+    done [
+        label     = "Done",
+        shape     = Msquare,
+        fillcolor = "#FFCDD2"
+    ]
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // EDGES
+    // ══════════════════════════════════════════════════════════════════════════
+
+    start -> investigate
+
+    // Investigator delivers findings to quality gate.
+    // quality-thread = fresh adversarial context, fidelity=full so the gate
+    // gets the complete investigation text.
+    investigate -> quality_eval [
+        thread_id = "quality-thread",
+        fidelity  = "full"
+    ]
+
+    // SUCCESS: skip comment_draft, go straight to done (dry-run mode).
+    quality_eval -> done [
+        label     = "outcome=success",
+        condition = "outcome=success",
+        color     = "#43A047",
+        fontcolor = "#43A047"
+    ]
+
+    // FAIL: investigator retries with quality_eval critique injected via $quality_feedback.
+    quality_eval -> investigate [
+        label     = "outcome!=success",
+        condition = "outcome!=success",
+        thread_id = "triage-thread",
+        style     = dashed,
+        color     = "#E57373",
+        fontcolor = "#E57373"
+    ]
+}
