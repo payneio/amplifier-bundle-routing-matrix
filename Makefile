@@ -27,7 +27,9 @@ _model_flag = $(if $(MODEL),--model $(MODEL),)
 
 ## dry-run: investigate + quality gate, no GitHub comment posted.
 ## Same prompts and thread design as the real pipeline — safe to run repeatedly.
+## Clears /tmp/workspace/ first to avoid stale cached checkouts from previous runs.
 dry-run: check-env
+	rm -rf /tmp/workspace/
 	amplifier-triage \
 	  --attractor-source test/triage-dry-run.dot \
 	  --event-path $(EVENT) \
