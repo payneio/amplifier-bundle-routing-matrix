@@ -100,7 +100,7 @@ digraph triage_review {
     // quality-thread = fresh adversarial context (compact summary only).
     investigate -> quality_eval [
         thread_id = "quality-thread",
-        fidelity  = "compact"
+        fidelity  = "full"
     ]
 
     // SUCCESS: quality approved — move to drafting and posting the comment.
