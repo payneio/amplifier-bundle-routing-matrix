@@ -3,12 +3,12 @@
 # Triggered by two paths:
 #   Path A: pull_request opened — reads the full diff and every changed file,
 #           applies the five-check framework, posts a structured review comment.
-#   Path B: /pr comment on an issue — reviews the PR referenced in the issue body,
+#   Path B: /review-pr comment on an issue — reviews the PR referenced in the issue body,
 #           posts findings back to the issue. Allows a team member to kick off a review
 #           from a "pr-review-request" issue without opening the PR directly.
 #
 # The bundle carries all PR review context (five checks, read-full-files protocol,
-# DM routing rules) — no local prompt files or recipes needed.
+# PR comment routing) — no local prompt files or recipes needed.
 #
 # Docs: https://github.com/microsoft/amplifier-app-actions
 
@@ -52,7 +52,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-  # Path B: /pr comment on an issue — reviews the PR referenced in the issue body.
+  # Path B: /review-pr comment on an issue — reviews the PR referenced in the issue body.
   review-from-issue:
     if: >-
       github.event_name == 'issue_comment' &&
