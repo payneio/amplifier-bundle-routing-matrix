@@ -82,14 +82,17 @@ digraph triage_review_hitl {
     // shape=hexagon marks this as a human-in-the-loop pause point.
     // mode=freeform means the attractor engine presents the description to the human
     // and waits for a free-text reply (captured as $clarify_response).
-    // NOTE: No 'prompt:' attribute — the attractor engine uses 'description' as the
-    // question text presented to the human. The reply is injected as $clarify_response.
+    //
+    // NOTE: The description is STATIC — no $variable references.  The Resolve engine
+    // does NOT expand $variables in hexagon `description` attributes (only in `prompt`
+    // attributes fed to the LLM).  The bridge will replace this static description
+    // with a richer message that includes the original issue context.
     clarify [
         label       = "Clarify with Reporter",
         shape       = hexagon,
         fillcolor   = "#FFE082",
         mode        = "freeform",
-        description = "The investigation needs more information from the issue reporter.\n\nQuestion:\n$clarify_prompt\n\nReply with `/resolve <your answer>`."
+        description = "The triage manager needs more information before it can investigate this issue.\n\nPlease provide additional context: affected versions, reproduction steps, error messages, or any other details that would help narrow down the root cause.\n\nReply with `/resolve <your answer>`."
     ]
 
     // Investigation cycle subgraph
