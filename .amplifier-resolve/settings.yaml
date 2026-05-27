@@ -1,0 +1,5 @@
+resolver: dot-graph
+resolvers:
+  dot-graph:
+    pipeline: .amplifier-resolve/triage.dot
+branch: main
