@@ -204,17 +204,17 @@ digraph triage_dynamic {
     // NEEDS CLARIFICATION: route to the clarification loop.
     // Only fires when manager explicitly sets context.complexity=needs_clarification.
     manager -> refine_question [
-        label = "clarify (fallback)"
+        label     = "needs_clarification",
+        condition = "context.complexity=needs_clarification",
+        color     = "#FF9800",
+        fontcolor = "#FF9800"
     ]
 
     // FALLBACK: discover_repos is the safe default for complex issues.
     // Unconditional — catches explicit "complex" routing AND
     // cases where the LLM output wasn't parsed as structured JSON.
     manager -> discover_repos [
-        label     = "complex",
-        condition = "context.complexity=complex",
-        color     = "#1565C0",
-        fontcolor = "#1565C0"
+        label = "complex (fallback)"
     ]
 
     // ── Clarification loop edges ──────────────────────────────────────
