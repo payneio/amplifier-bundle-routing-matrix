@@ -1,7 +1,3 @@
-resolvers:
-  - resolver: dot-graph
-    pipelines:
-      - .amplifier-resolve/triage-dynamic.dot
-      - .amplifier-resolve/implement.dot
-      - .amplifier-resolve/review.dot
+resolver: dot-graph
+pipeline: .amplifier-resolve/resolve-router.dot
 branch: main
