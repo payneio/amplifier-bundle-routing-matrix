@@ -1,11 +1,13 @@
 // implement.dot
 //
-// Pipeline: Code Fix Demo
+// Pipeline: Code Fix Implementation
 //
-// Simple flow for demonstrating issue -> fix -> results:
+// Flow for implementing a fix from issue to pull request:
 //   1. Planner reads issue + triage findings, writes fix plan
-//   2. Implement the fix (LLM handles TDD, tests, commits internally)
-//   3. Comment draft posts results back to the GitHub issue via bridge.*
+//   2. Checkout a fix branch for the work
+//   3. Implement the fix (LLM handles TDD, tests, commits internally)
+//   4. Push the branch to origin (Gitea mirror)
+//   5. Comment draft posts results back to the GitHub issue via bridge.*
 
 digraph implement_fix {
 
@@ -49,6 +51,14 @@ digraph implement_fix {
         prompt     = "You are a fix planner. Read the issue and any triage analysis from $goal.\n\nWrite a concise fix plan to docs/fix-plan.md with these sections:\n- ROOT CAUSE: What is broken and why\n- FILES TO CHANGE: Exact files and what changes in each\n- TEST STRATEGY: What tests to write/modify to verify the fix\n- VERIFICATION: How to confirm the fix works end-to-end\n\nThen git add and git commit the plan.\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"fix_plan\": \"docs/fix-plan.md written\"}}"
     ]
 
+    // Checkout branch — create and switch to a fix branch
+    checkout_branch [
+        label      = "Checkout Branch",
+        shape      = parallelogram,
+        fillcolor  = "#FFF9C4",
+        tool_command = "bash -c 'BRANCH=\"resolve/fix-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$BRANCH\"; echo \"$BRANCH\"'"
+    ]
+
     // Implement fix — the LLM handles everything: write tests, write code,
     // run tests, fix failures, git add, git commit. Same pattern as
     // dotpowers' ImplementTask.
@@ -62,12 +72,20 @@ digraph implement_fix {
         prompt     = "You are implementing a code fix.\n\nRead the fix plan from docs/fix-plan.md.\n\nProcess:\n1. Write a test that reproduces the bug (if applicable)\n2. Run the test to confirm it fails\n3. Write the minimal code to fix the issue\n4. Run tests to confirm the fix works and no regressions\n5. git add the changed files (specific files, not -A)\n6. git commit with a descriptive message\n\nIf tests fail, debug and fix. You have 3 attempts.\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"implementation_summary\": \"YOUR SUMMARY: what files changed, what tests pass, what was fixed\"}}"
     ]
 
+    // Push branch — push the working branch to origin (Gitea mirror)
+    push_branch [
+        label      = "Push Branch",
+        shape      = parallelogram,
+        fillcolor  = "#FFF9C4",
+        tool_command = "git push -u origin HEAD"
+    ]
+
     // Comment draft — writes bridge.* output for GitHub comment
     comment_draft [
         label     = "Draft Comment",
         shape     = box,
         fillcolor = "#E8F0FE",
-        prompt    = "Draft a GitHub issue comment summarizing the implementation.\n\nRead $implementation_summary for what was done.\n\nInclude:\n- Brief summary of what was fixed and how\n- Which files were changed\n- Test results\n- Suggest next step: the user can review the changes in the Resolve workspace\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"bridge.comment\": \"YOUR COMMENT IN MARKDOWN\", \"bridge.summary\": \"ONE-LINE FIX SUMMARY\", \"bridge.labels\": [\"fix-implemented\"]}}"
+        prompt    = "Draft a GitHub issue comment summarizing the implementation.\n\nRead $implementation_summary for what was done.\nThe branch has been pushed and a PR will be created automatically.\n\nInclude:\n- Brief summary of what was fixed and how\n- Which files were changed\n- Test results\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"bridge.comment\": \"YOUR COMMENT IN MARKDOWN\", \"bridge.summary\": \"ONE-LINE FIX SUMMARY\", \"bridge.labels\": [\"fix-implemented\"]}}"
     ]
 
     // Pipeline exit
@@ -82,8 +100,10 @@ digraph implement_fix {
     // ═══════════════════════════════════════════════════════════════
 
     start -> planner
-    planner -> implement_fix
-    implement_fix -> comment_draft
+    planner -> checkout_branch
+    checkout_branch -> implement_fix
+    implement_fix -> push_branch
+    push_branch -> comment_draft
     comment_draft -> done
 
 }
