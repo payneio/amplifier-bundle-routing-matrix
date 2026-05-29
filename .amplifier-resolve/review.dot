@@ -1,94 +1,61 @@
 // review.dot
 //
-// Pipeline: Automated PR Code Review
+// Pipeline: PR Code Review
 //
-// Flow:
-//   1. Discover the PR number from $goal or open PR list
-//   2. Fetch the PR diff
-//   3. Perform a thorough code review across 6 dimensions
-//   4. Post the review verdict via gh pr review
-//   5. Draft a bridge comment for the GitHub issue
-//
+// Simple flow:
+//   1. Discover the PR (from goal text or latest open PR)
+//   2. LLM reviews the code changes
+//   3. Post results via bridge.* comment
 
 digraph code_review {
 
     // — Graph-level attributes ————————————————————————————————————
     label             = "Code Review"
-    description       = "Review a PR for code quality, correctness, security, and test coverage"
+    description       = "Review a PR for code quality, correctness, and test coverage"
     labelloc          = t
     rankdir           = TB
     compound          = true
-    fontname          = "Helvetica"
-    nodesep           = 0.6
-    ranksep           = 0.9
 
     // Attractor pipeline configuration
     goal              = "$goal"
     default_fidelity  = "full"
     default_thread_id = "code-review-thread"
 
-    // — Model stylesheet ——————————————————————————————————————————
-    model_stylesheet  = "code_review: model_role=reasoning reasoning_effort=high; comment_draft: model_role=general"
+    // — Model stylesheet ————————————————————————————————————————
+    model_stylesheet  = "code_review: model_role=reasoning; comment_draft: model_role=general"
 
-    // — Default node and edge styles ——————————————————————————————
+    // — Default styles ——————————————————————————————————————————
     node [fontname="Helvetica", fontsize=11, style="filled"]
     edge [fontname="Helvetica", fontsize=10, color="#555555"]
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // PIPELINE NODES
-    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
 
-    // Entry point
     start [
         label     = "Start",
         shape     = Mdiamond,
         fillcolor = "#C8E6C9"
     ]
 
-    // Discover PR — extract PR number from $goal with staged extraction:
-    //   1. pull/ URL pattern (most specific — avoids #N from translator header)
-    //   2. Explicit PR keyword references (PR #N, PR N)
-    //   3. Fallback to latest open PR via gh pr list
-    discover_pr [
-        label        = "Discover PR",
-        shape        = parallelogram,
-        fillcolor    = "#E1BEE7",
-        parse_json   = true,
-        tool_command = "PR_NUM=$(echo \"$goal\" | grep -oP 'pull/\\K\\d+' | head -1); if test -z \\"$PR_NUM\\"; then PR_NUM=$(echo \\"$goal\\" | grep -oP 'PR\\s*#?\\s*\\K\\d+' | head -1); fi; if test -z \"$PR_NUM\"; then PR_NUM=$(gh pr list --state open --limit 1 --json number --template '{{range .}}{{.number}}{{end}}'); fi; PR_URL=$(gh pr view \"$PR_NUM\" --json url --template '{{.url}}'); echo \"{\\\"context_updates\\\": {\\\"review.pr_number\\\": \\\"$PR_NUM\\\", \\\"review.pr_url\\\": \\\"$PR_URL\\\"}}\""
-    ]
-
-    // Fetch diff — retrieve the PR diff (truncated to 3000 lines)
-    fetch_diff [
-        label        = "Fetch Diff",
-        shape        = parallelogram,
-        fillcolor    = "#E1BEE7",
-        tool_command = "PR_NUM=${review.pr_number} && gh pr diff \"$PR_NUM\" 2>&1 | head -3000"
-    ]
-
-    // Code review — thorough review across 6 quality dimensions
+    // Code review — the LLM reads the repo, finds the PR,
+    // reviews the diff, and produces a structured review.
+    // It has bash + git + curl + GH_TOKEN available.
     code_review [
         label      = "Code Review",
         shape      = box,
         fillcolor  = "#E8F0FE",
         fidelity   = "full",
         goal_gate  = true,
-        prompt     = "You are an expert code reviewer. Review the PR diff thoroughly across these 6 dimensions:\n\n1. **Correctness**: Does the code do what it claims? Are there logic errors, off-by-one mistakes, or missing edge cases?\n2. **Code Quality**: Is the code clean, readable, and well-structured? Does it follow project conventions?\n3. **Architecture**: Are abstractions appropriate? Is coupling minimized? Are responsibilities well-separated?\n4. **Test Coverage**: Are there adequate tests? Do tests cover edge cases and failure modes?\n5. **Security**: Are there injection risks, credential leaks, unsafe deserialization, or missing input validation?\n6. **Performance**: Are there unnecessary allocations, N+1 queries, or algorithmic inefficiencies?\n\nFor each dimension, provide a brief assessment (pass/concern/fail).\n\nWrite the full structured review to docs/review/review-output.md.\n\nThen choose a verdict: approve, request_changes, or comment.\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"review_body\": \"YOUR FULL REVIEW MARKDOWN\", \"review_verdict\": \"approve|request_changes|comment\", \"review_summary\": \"ONE-LINE SUMMARY\"}}"
+        prompt     = "You are an expert code reviewer.\n\nRead $goal to understand the context. Your job is to find and review the most recent PR or code changes in the workspace.\n\nStep 1 — Find the PR:\n- Look for PR references in $goal (e.g. PR #7, pull/7)\n- Or find the latest open PR: curl -s -H \"Authorization: token ${GH_TOKEN}\" \"https://api.github.com/repos/$(git remote get-url origin | grep -oP 'github.com[:/]\\K[^.]+' | head -1)/pulls?state=open&per_page=1\"\n- Get the diff: curl -s -H \"Authorization: token ${GH_TOKEN}\" -H \"Accept: application/vnd.github.diff\" \"https://api.github.com/repos/OWNER/REPO/pulls/NUMBER\"\n\nStep 2 — Review the diff across these dimensions:\n1. **Correctness**: Logic errors, edge cases, off-by-one mistakes\n2. **Code Quality**: Readability, naming, structure, conventions\n3. **Test Coverage**: Are changes tested? Edge cases covered?\n4. **Security**: Injection risks, credential leaks, unsafe input\n\nStep 3 — Choose a verdict: approve, request_changes, or comment\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"review_body\": \"YOUR FULL REVIEW MARKDOWN\", \"review_verdict\": \"approve|request_changes|comment\", \"review_summary\": \"ONE-LINE SUMMARY\", \"review_pr_url\": \"THE PR URL\"}}\n\nCRITICAL: Your ENTIRE response must be ONLY the JSON object. No preamble, no explanation, no code fences."
     ]
 
-    // Post review — submit the review verdict via GitHub CLI
-    post_review [
-        label        = "Post Review",
-        shape        = parallelogram,
-        fillcolor    = "#E1BEE7",
-        tool_command = "PR_NUM=${review.pr_number} && VERDICT=${review_verdict} && case \"$VERDICT\" in approve) EVENT=APPROVE;; request_changes) EVENT=REQUEST_CHANGES;; *) EVENT=COMMENT;; esac && if test -f docs/review/review-output.md; then gh pr review \"$PR_NUM\" --event \"$EVENT\" --body-file docs/review/review-output.md; else gh pr review \"$PR_NUM\" --event \"$EVENT\" --body \"Review completed with verdict: $EVENT\"; fi"
-    ]
-
-    // Comment draft — draft bridge.comment for the GitHub issue
+    // Comment draft — writes bridge.* output for the GitHub issue
     comment_draft [
         label     = "Draft Comment",
         shape     = box,
         fillcolor = "#E8F0FE",
-        prompt    = "Draft a GitHub issue comment summarizing the code review.\n\nInclude:\n- Review verdict: ${review_verdict}\n- Summary: ${review_summary}\n- Link to the PR: ${review.pr_url}\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"bridge.comment\": \"YOUR COMMENT IN MARKDOWN\", \"bridge.summary\": \"ONE-LINE REVIEW SUMMARY\", \"bridge.labels\": [\"reviewed\"]}}\n\nCRITICAL: Your ENTIRE response must be ONLY the JSON object above. No preamble, no explanation, no markdown code fences, no text before or after. Just the raw JSON."
+        prompt    = "Draft a GitHub issue comment summarizing the code review.\n\nReview verdict: $review_verdict\nReview summary: $review_summary\nPR URL: $review_pr_url\nFull review: $review_body\n\nInclude:\n- The verdict (approve/request_changes/comment)\n- Key findings from the review\n- Link to the PR\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"bridge.comment\": \"YOUR COMMENT IN MARKDOWN\", \"bridge.summary\": \"ONE-LINE REVIEW SUMMARY\", \"bridge.labels\": [\"reviewed\"]}}\n\nCRITICAL: Your ENTIRE response must be ONLY the JSON object. No preamble, no explanation, no code fences."
     ]
 
     // Pipeline exit
@@ -98,15 +65,12 @@ digraph code_review {
         fillcolor = "#FFCDD2"
     ]
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // EDGES
-    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
 
-    start -> discover_pr
-    discover_pr -> fetch_diff
-    fetch_diff -> code_review
-    code_review -> post_review
-    post_review -> comment_draft
+    start -> code_review
+    code_review -> comment_draft
     comment_draft -> done
 
 }
