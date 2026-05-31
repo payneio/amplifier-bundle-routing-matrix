@@ -99,29 +99,25 @@ digraph simple_fix {
         parse_json = true,
         tool_command = "#!/bin/sh
 set -e
+OWNER_REPO=\"$delivery_repo\"
+if [ -z \"$OWNER_REPO\" ]; then printf '{\"error\": \"delivery_repo not set\"}'; exit 1; fi
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-ORIGIN=$(git remote get-url origin 2>/dev/null || echo '')
-OWNER_REPO=$(echo \"$ORIGIN\" | sed -E 's#.*github.com[:/]##; s#\\.git$##')
-if [ -z \"$OWNER_REPO\" ]; then printf '{\"error\": \"no github origin remote\"}'; exit 1; fi
-git remote set-url origin \"https://x-access-token:${GH_TOKEN}@github.com/${OWNER_REPO}.git\"
-git push -u origin \"$BRANCH\" 2>&1
+git remote add gh \"https://x-access-token:${GH_TOKEN}@github.com/${OWNER_REPO}.git\" 2>/dev/null || git remote set-url gh \"https://x-access-token:${GH_TOKEN}@github.com/${OWNER_REPO}.git\"
+git push -u gh \"$BRANCH\" 2>&1
 PR_TITLE=$(head -1 docs/fix-design.md 2>/dev/null | sed 's/^#* *//')
 if [ -z \"$PR_TITLE\" ]; then PR_TITLE=\"Automated fix from triage\"; fi
 python3 - \"$PR_TITLE\" \"$BRANCH\" > /tmp/pr_body.json <<'PYJSON'
 import json, sys
 print(json.dumps({\"title\": sys.argv[1], \"head\": sys.argv[2], \"base\": \"main\", \"body\": \"Automated fix from triage findings. See docs/fix-design.md and docs/fix-plan.md.\"}))
 PYJSON
-RESP=$(curl -s -X POST -H \"Authorization: token ${GH_TOKEN}\" -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/${OWNER_REPO}/pulls\" --data @/tmp/pr_body.json)
-echo \"$RESP\" > /tmp/pr_resp.json
+curl -s -X POST -H \"Authorization: token ${GH_TOKEN}\" -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/${OWNER_REPO}/pulls\" --data @/tmp/pr_body.json > /tmp/pr_resp.json
 python3 - \"$OWNER_REPO\" <<'PYOUT'
 import json, sys
 owner_repo = sys.argv[1]
-try:
-    d = json.load(open('/tmp/pr_resp.json'))
-except Exception:
-    d = {}
-url = d.get('html_url', '') if isinstance(d, dict) else ''
-num = d.get('number', '') if isinstance(d, dict) else ''
+try: d = json.load(open('/tmp/pr_resp.json'))
+except Exception: d = {}
+url = d.get('html_url','') if isinstance(d,dict) else ''
+num = d.get('number','') if isinstance(d,dict) else ''
 print(json.dumps({'delivery.pr_url': url, 'delivery.pr_number': str(num), 'delivery.owner_repo': owner_repo}))
 PYOUT"
     ]
