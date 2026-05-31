@@ -118,7 +118,7 @@ try: d = json.load(open('/tmp/pr_resp.json'))
 except Exception: d = {}
 url = d.get('html_url','') if isinstance(d,dict) else ''
 num = d.get('number','') if isinstance(d,dict) else ''
-print(json.dumps({'delivery.pr_url': url, 'delivery.pr_number': str(num), 'delivery.owner_repo': owner_repo}))
+print(json.dumps({'delivery.pr_url': url, 'delivery.pr_number': str(num), 'delivery.owner_repo': owner_repo, 'pr_url': url, 'pr_number': str(num), 'owner_repo': owner_repo}))
 PYOUT"
     ]
 
@@ -127,7 +127,7 @@ PYOUT"
         label     = "Draft Comment",
         shape     = box,
         fillcolor = "#E8F0FE",
-        prompt    = "Draft a GitHub issue comment summarizing the implemented fix.\n\nRead $implementation_summary for what was done.\nPR URL: $delivery.pr_url\nPR number: $delivery.pr_number\nOwner/repo: $delivery.owner_repo\n\nThe comment MUST include:\n- A brief summary of what was fixed and how\n- Which files were changed\n- A link to the PR: $delivery.pr_url\n- On a NEW LINE at the very end, this exact trigger so review runs automatically:\n/review-pr $delivery.owner_repo#$delivery.pr_number\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"bridge.comment\": \"YOUR COMMENT IN MARKDOWN\", \"bridge.summary\": \"ONE-LINE FIX SUMMARY\", \"bridge.labels\": [\"fix-implemented\"]}}\n\nCRITICAL: Your ENTIRE response must be ONLY the JSON object above. No preamble, no explanation, no markdown code fences, no text before or after. Just the raw JSON."
+        prompt    = "Draft a GitHub issue comment summarizing the implemented fix.\n\nRead $implementation_summary for what was done.\nPR URL: $pr_url\nPR number: $pr_number\nOwner/repo: $owner_repo\n\nThe comment MUST include:\n- A brief summary of what was fixed and how\n- Which files were changed\n- A link to the PR: $pr_url\n- On a NEW LINE at the very end, this exact trigger so review runs automatically:\n/review-pr $owner_repo#$pr_number\n\nOutput:\n{\"status\": \"success\", \"context_updates\": {\"bridge.comment\": \"YOUR COMMENT IN MARKDOWN\", \"bridge.summary\": \"ONE-LINE FIX SUMMARY\", \"bridge.labels\": [\"fix-implemented\"]}}\n\nCRITICAL: Your ENTIRE response must be ONLY the JSON object above. No preamble, no explanation, no markdown code fences, no text before or after. Just the raw JSON."
     ]
 
     // Pipeline exit
