@@ -1,0 +1,208 @@
+# Routing Matrix: balanced-litellm
+#
+# Routes ALL roles through the local LiteLLM proxy (localhost:4000).
+# LiteLLM handles the actual provider routing (Anthropic, OpenAI, Gemini,
+# GitHub Copilot, vLLM, etc.) -- Amplifier just sees one provider.
+#
+# Model names here are LiteLLM model aliases as defined in the LiteLLM
+# config.yaml. The "litellm" provider (provider-litellm) is configured in
+# settings.yaml pointing at http://localhost:4000.
+#
+# Ordering within each role: best-for-role first, then fallbacks.
+
+name: balanced-litellm
+description: "All traffic through local LiteLLM proxy. Quality/cost balanced."
+updated: "2026-06-26"
+
+roles:
+  # ---------------------------------------------------------------------------
+  # Foundation Roles
+  # ---------------------------------------------------------------------------
+
+  general:
+    description: "Versatile catch-all, no specialization needed"
+    candidates:
+      - provider: litellm
+        model: claude-sonnet-4-6
+      - provider: litellm
+        model: gpt-5.5
+      - provider: litellm
+        model: gemini-3.1-pro-preview
+      - provider: litellm
+        model: copilot/claude-sonnet-4.6
+      - provider: litellm
+        model: copilot/gpt-5.5
+
+  fast:
+    description: "Quick utility tasks -- parsing, classification, file ops, bulk work"
+    candidates:
+      - provider: litellm
+        model: claude-haiku-4-5
+      - provider: litellm
+        model: gpt-5.4-mini
+      - provider: litellm
+        model: gemini-3.5-flash
+      - provider: litellm
+        model: copilot/gpt-5-mini
+      - provider: litellm
+        model: copilot/claude-haiku-4.5
+
+  # ---------------------------------------------------------------------------
+  # Coding Domain Roles
+  # ---------------------------------------------------------------------------
+
+  coding:
+    description: "Code generation, implementation, debugging"
+    candidates:
+      - provider: litellm
+        model: claude-sonnet-4-6
+      - provider: litellm
+        model: gpt-5.5
+      - provider: litellm
+        model: gemini-3.1-pro-preview
+      - provider: litellm
+        model: copilot/claude-sonnet-4.6
+      - provider: litellm
+        model: copilot/gpt-5.5
+
+  ui-coding:
+    description: "Frontend/UI code -- components, layouts, styling, spatial reasoning"
+    candidates:
+      - provider: litellm
+        model: claude-sonnet-4-6
+      - provider: litellm
+        model: gpt-5.5
+      - provider: litellm
+        model: gemini-3.1-pro-preview
+      - provider: litellm
+        model: copilot/claude-sonnet-4.6
+
+  security-audit:
+    description: "Vulnerability assessment, attack surface analysis, code auditing"
+    candidates:
+      - provider: litellm
+        model: claude-sonnet-4-6
+        config:
+          reasoning_effort: high
+      - provider: litellm
+        model: gpt-5.5
+        config:
+          reasoning_effort: xhigh
+      - provider: litellm
+        model: gemini-3.1-pro-preview
+        config:
+          reasoning_effort: high
+
+  # ---------------------------------------------------------------------------
+  # Cognitive Mode Roles
+  # ---------------------------------------------------------------------------
+
+  reasoning:
+    description: "Deep architectural reasoning, system design, complex multi-step analysis"
+    candidates:
+      - provider: litellm
+        model: claude-opus-4-8
+        config:
+          reasoning_effort: high
+      - provider: litellm
+        model: gpt-5.5-pro
+        config:
+          reasoning_effort: xhigh
+      - provider: litellm
+        model: copilot/claude-opus-4.8
+        config:
+          reasoning_effort: high
+      - provider: litellm
+        model: claude-sonnet-4-6
+
+  critique:
+    description: "Analytical evaluation -- finding flaws in existing work"
+    candidates:
+      - provider: litellm
+        model: claude-sonnet-4-6
+        config:
+          reasoning_effort: xhigh
+      - provider: litellm
+        model: gpt-5.5
+        config:
+          reasoning_effort: xhigh
+      - provider: litellm
+        model: gemini-3.1-pro-preview
+        config:
+          reasoning_effort: xhigh
+
+  creative:
+    description: "Design direction, aesthetic judgment, high-quality creative output"
+    candidates:
+      - provider: litellm
+        model: claude-opus-4-8
+      - provider: litellm
+        model: gpt-5.5
+      - provider: litellm
+        model: copilot/claude-opus-4.8
+
+  writing:
+    description: "Long-form content -- documentation, marketing, case studies, storytelling"
+    candidates:
+      - provider: litellm
+        model: claude-opus-4-8
+      - provider: litellm
+        model: gpt-5.5
+      - provider: litellm
+        model: copilot/claude-opus-4.8
+
+  research:
+    description: "Deep investigation, information synthesis across multiple sources"
+    candidates:
+      - provider: litellm
+        model: claude-opus-4-8
+        config:
+          reasoning_effort: high
+      - provider: litellm
+        model: gpt-5.5-pro
+        config:
+          reasoning_effort: high
+      - provider: litellm
+        model: copilot/claude-opus-4.8
+      - provider: litellm
+        model: claude-sonnet-4-6
+
+  # ---------------------------------------------------------------------------
+  # Capability Roles
+  # ---------------------------------------------------------------------------
+
+  vision:
+    description: "Understanding visual input -- screenshots, diagrams, UI mockups"
+    candidates:
+      - provider: litellm
+        model: gemini-3.5-flash
+      - provider: litellm
+        model: gemini-3.1-pro-preview
+      - provider: litellm
+        model: claude-sonnet-4-6
+      - provider: litellm
+        model: gpt-5.5
+
+  image-gen:
+    description: "Image generation, visual mockup creation, visual ideation"
+    candidates:
+      - provider: litellm
+        model: nano-banana-pro-preview
+      - provider: litellm
+        model: gpt-image-2
+      - provider: litellm
+        model: dall-e-3
+
+  # ---------------------------------------------------------------------------
+  # Operational Role
+  # ---------------------------------------------------------------------------
+
+  critical-ops:
+    description: "High-reliability operational tasks -- infrastructure, orchestration"
+    candidates:
+      - provider: litellm
+        model: claude-opus-4-8
+      - provider: litellm
+        model: gpt-5.5-pro
+      - provider: litellm
+        model: copilot/claude-opus-4.8
